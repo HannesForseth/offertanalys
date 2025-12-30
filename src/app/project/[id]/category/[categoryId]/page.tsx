@@ -4,12 +4,13 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { QuoteUploader } from '@/components/quotes/QuoteUploader'
 import { QuoteCard } from '@/components/quotes/QuoteCard'
+import { SpecificationUploader } from '@/components/specifications/SpecificationUploader'
+import { SpecificationCard } from '@/components/specifications/SpecificationCard'
 import { ComparisonView } from '@/components/analysis/ComparisonView'
-import { Project, QuoteCategory, Quote } from '@/lib/supabase'
+import { Project, QuoteCategory, Quote, Specification } from '@/lib/supabase'
 import { formatPrice } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -21,6 +22,9 @@ import {
   Sparkles,
   AlertCircle,
   CheckCircle,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 
 interface PageProps {
@@ -33,8 +37,12 @@ export default function CategoryPage({ params }: PageProps) {
   const [project, setProject] = useState<Project | null>(null)
   const [category, setCategory] = useState<QuoteCategory | null>(null)
   const [quotes, setQuotes] = useState<Quote[]>([])
+  const [specifications, setSpecifications] = useState<Specification[]>([])
+  const [activeSpecId, setActiveSpecId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showUploader, setShowUploader] = useState(false)
+  const [showSpecUploader, setShowSpecUploader] = useState(false)
+  const [showSpecSection, setShowSpecSection] = useState(true)
   const [selectedQuotes, setSelectedQuotes] = useState<string[]>([])
   const [comparing, setComparing] = useState(false)
   const [comparisonResult, setComparisonResult] = useState<Record<string, unknown> | null>(null)
@@ -73,6 +81,17 @@ export default function CategoryPage({ params }: PageProps) {
       if (quotesRes.ok) {
         setQuotes(await quotesRes.json())
       }
+
+      // Fetch specifications
+      const specsRes = await fetch(`/api/specifications?categoryId=${categoryId}`)
+      if (specsRes.ok) {
+        const specs = await specsRes.json()
+        setSpecifications(specs)
+        // Auto-select first specification if exists
+        if (specs.length > 0 && !activeSpecId) {
+          setActiveSpecId(specs[0].id)
+        }
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -91,12 +110,16 @@ export default function CategoryPage({ params }: PageProps) {
 
     setComparing(true)
     try {
+      // Get active specification text if any
+      const activeSpec = specifications.find((s) => s.id === activeSpecId)
+
       const res = await fetch('/api/compare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId,
           quoteIds: selectedQuotes,
+          specificationText: activeSpec?.extracted_text || undefined,
         }),
       })
 
@@ -133,7 +156,6 @@ export default function CategoryPage({ params }: PageProps) {
       if (res.ok) {
         const result = await res.json()
         setAnalysisProgress(result)
-        // Refresh quotes after analysis
         fetchData()
       } else {
         const error = await res.json()
@@ -184,8 +206,12 @@ export default function CategoryPage({ params }: PageProps) {
 
   // Calculate totals (only for analyzed quotes)
   const quotesWithAmount = analyzedQuotes.filter((q) => q.total_amount)
-  const totalValue = quotesWithAmount.reduce((sum, q) => sum + (q.total_amount || 0), 0)
-  const avgValue = quotesWithAmount.length > 0 ? totalValue / quotesWithAmount.length : 0
+  const avgValue = quotesWithAmount.length > 0
+    ? quotesWithAmount.reduce((sum, q) => sum + (q.total_amount || 0), 0) / quotesWithAmount.length
+    : 0
+
+  // Get active specification
+  const activeSpec = specifications.find((s) => s.id === activeSpecId)
 
   return (
     <div className="min-h-screen bg-[#0a0f14]">
@@ -229,6 +255,9 @@ export default function CategoryPage({ params }: PageProps) {
                 <Button onClick={handleCompare} loading={comparing}>
                   <GitCompare className="w-4 h-4 mr-2" />
                   Jämför ({selectedQuotes.length})
+                  {activeSpec && (
+                    <span className="ml-1 text-xs opacity-70">+ beskr.</span>
+                  )}
                 </Button>
               )}
 
@@ -321,6 +350,12 @@ export default function CategoryPage({ params }: PageProps) {
                 <p className="text-xs text-slate-500 uppercase tracking-wide">Snittpris</p>
                 <p className="text-xl font-bold text-slate-300 font-mono">{formatPrice(avgValue)}</p>
               </div>
+              {activeSpec && (
+                <div className="ml-auto flex items-center gap-2 text-emerald-400">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="text-sm">{activeSpec.name}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -328,11 +363,94 @@ export default function CategoryPage({ params }: PageProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Specifications Section */}
+        <div className="mb-8">
+          <button
+            onClick={() => setShowSpecSection(!showSpecSection)}
+            className="flex items-center gap-2 text-slate-300 hover:text-slate-100 mb-4"
+          >
+            <BookOpen className="w-5 h-5 text-emerald-400" />
+            <span className="font-semibold">Tekniska beskrivningar / Föreskrifter</span>
+            <span className="text-xs text-slate-500">({specifications.length})</span>
+            {showSpecSection ? (
+              <ChevronUp className="w-4 h-4 ml-1" />
+            ) : (
+              <ChevronDown className="w-4 h-4 ml-1" />
+            )}
+          </button>
+
+          {showSpecSection && (
+            <div className="space-y-4">
+              {specifications.length === 0 ? (
+                <Card className="border-dashed border-emerald-500/30 bg-emerald-500/5">
+                  <CardContent className="py-8 text-center">
+                    <BookOpen className="w-12 h-12 text-emerald-500/50 mx-auto mb-3" />
+                    <h3 className="text-sm font-medium text-slate-300 mb-2">
+                      Ingen teknisk beskrivning uppladdad
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-4">
+                      Ladda upp en rambeskrivning för att jämföra offerter mot föreskrivet material
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
+                      onClick={() => setShowSpecUploader(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Ladda upp beskrivning
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {specifications.map((spec) => (
+                    <SpecificationCard
+                      key={spec.id}
+                      specification={spec}
+                      isActive={spec.id === activeSpecId}
+                      onToggleActive={() =>
+                        setActiveSpecId(spec.id === activeSpecId ? null : spec.id)
+                      }
+                      onDelete={fetchData}
+                    />
+                  ))}
+                  <Card
+                    hover
+                    className="border-dashed border-emerald-500/30 cursor-pointer hover:bg-emerald-500/5"
+                    onClick={() => setShowSpecUploader(true)}
+                  >
+                    <CardContent className="py-8 flex flex-col items-center justify-center text-emerald-400">
+                      <Plus className="w-8 h-8 mb-2" />
+                      <span className="text-sm">Lägg till beskrivning</span>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {activeSpec && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-emerald-400" />
+                  <p className="text-sm text-emerald-400">
+                    <strong>{activeSpec.name}</strong> används vid jämförelse - offerter kontrolleras mot föreskrifter
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Selected quotes banner */}
         {selectedQuotes.length > 0 && (
           <div className="mb-6 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg flex items-center justify-between">
             <p className="text-sm text-cyan-400">
               {selectedQuotes.length} offert{selectedQuotes.length > 1 ? 'er' : ''} vald
               {selectedQuotes.length > 1 ? 'a' : ''}
+              {activeSpec && (
+                <span className="ml-2 text-emerald-400">
+                  (jämförs mot {activeSpec.name})
+                </span>
+              )}
             </p>
             <Button variant="ghost" size="sm" onClick={() => setSelectedQuotes([])}>
               <X className="w-4 h-4 mr-1" />
@@ -341,6 +459,7 @@ export default function CategoryPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* Quotes */}
         {quotes.length === 0 ? (
           <Card className="text-center py-16">
             <CardContent>
@@ -415,6 +534,23 @@ export default function CategoryPage({ params }: PageProps) {
           categoryId={categoryId}
           onUploadComplete={() => {
             setShowUploader(false)
+            fetchData()
+          }}
+        />
+      </Modal>
+
+      {/* Specification Upload Modal */}
+      <Modal
+        open={showSpecUploader}
+        onClose={() => setShowSpecUploader(false)}
+        title="Ladda upp teknisk beskrivning"
+        size="lg"
+      >
+        <SpecificationUploader
+          projectId={id}
+          categoryId={categoryId}
+          onUploadComplete={() => {
+            setShowSpecUploader(false)
             fetchData()
           }}
         />
