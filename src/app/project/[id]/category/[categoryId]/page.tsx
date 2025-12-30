@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
@@ -18,6 +18,9 @@ import {
   FileText,
   Loader2,
   X,
+  Sparkles,
+  AlertCircle,
+  CheckCircle,
 } from 'lucide-react'
 
 interface PageProps {
@@ -36,6 +39,14 @@ export default function CategoryPage({ params }: PageProps) {
   const [comparing, setComparing] = useState(false)
   const [comparisonResult, setComparisonResult] = useState<Record<string, unknown> | null>(null)
   const [showComparison, setShowComparison] = useState(false)
+
+  // Batch analysis state
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState<{
+    success: number
+    failed: number
+    errors: string[]
+  } | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -101,6 +112,49 @@ export default function CategoryPage({ params }: PageProps) {
     }
   }
 
+  // Batch analyze pending quotes
+  const handleAnalyzeAll = async () => {
+    const pendingQuoteIds = quotes
+      .filter((q) => q.status === 'pending')
+      .map((q) => q.id)
+
+    if (pendingQuoteIds.length === 0) return
+
+    setAnalyzing(true)
+    setAnalysisProgress(null)
+
+    try {
+      const res = await fetch('/api/quotes/analyze-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quoteIds: pendingQuoteIds }),
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        setAnalysisProgress(result)
+        // Refresh quotes after analysis
+        fetchData()
+      } else {
+        const error = await res.json()
+        setAnalysisProgress({
+          success: 0,
+          failed: pendingQuoteIds.length,
+          errors: [error.error || 'Kunde inte analysera offerterna'],
+        })
+      }
+    } catch (error) {
+      console.error('Error analyzing quotes:', error)
+      setAnalysisProgress({
+        success: 0,
+        failed: pendingQuoteIds.length,
+        errors: ['Nätverksfel - kontrollera din anslutning'],
+      })
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0f14] flex items-center justify-center">
@@ -124,9 +178,14 @@ export default function CategoryPage({ params }: PageProps) {
     )
   }
 
-  // Calculate totals
-  const totalValue = quotes.reduce((sum, q) => sum + (q.total_amount || 0), 0)
-  const avgValue = quotes.length > 0 ? totalValue / quotes.length : 0
+  // Separate quotes by status
+  const pendingQuotes = quotes.filter((q) => q.status === 'pending')
+  const analyzedQuotes = quotes.filter((q) => q.status !== 'pending')
+
+  // Calculate totals (only for analyzed quotes)
+  const quotesWithAmount = analyzedQuotes.filter((q) => q.total_amount)
+  const totalValue = quotesWithAmount.reduce((sum, q) => sum + (q.total_amount || 0), 0)
+  const avgValue = quotesWithAmount.length > 0 ? totalValue / quotesWithAmount.length : 0
 
   return (
     <div className="min-h-screen bg-[#0a0f14]">
@@ -152,40 +211,110 @@ export default function CategoryPage({ params }: PageProps) {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Analyze button for pending quotes */}
+              {pendingQuotes.length > 0 && (
+                <Button
+                  variant="secondary"
+                  onClick={handleAnalyzeAll}
+                  loading={analyzing}
+                  className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Analysera ({pendingQuotes.length})
+                </Button>
+              )}
+
+              {/* Compare button */}
               {selectedQuotes.length >= 2 && (
                 <Button onClick={handleCompare} loading={comparing}>
                   <GitCompare className="w-4 h-4 mr-2" />
                   Jämför ({selectedQuotes.length})
                 </Button>
               )}
+
               <Button onClick={() => setShowUploader(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Ladda upp offert
+                Ladda upp offerter
               </Button>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Analysis Progress Banner */}
+      {analysisProgress && (
+        <div className={`border-b ${
+          analysisProgress.failed > 0 && analysisProgress.success === 0
+            ? 'bg-red-500/10 border-red-500/30'
+            : analysisProgress.failed > 0
+            ? 'bg-amber-500/10 border-amber-500/30'
+            : 'bg-green-500/10 border-green-500/30'
+        }`}>
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-start gap-3">
+              {analysisProgress.failed > 0 && analysisProgress.success === 0 ? (
+                <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
+              ) : analysisProgress.failed > 0 ? (
+                <AlertCircle className="w-5 h-5 text-amber-400 mt-0.5" />
+              ) : (
+                <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${
+                  analysisProgress.failed > 0 && analysisProgress.success === 0
+                    ? 'text-red-400'
+                    : analysisProgress.failed > 0
+                    ? 'text-amber-400'
+                    : 'text-green-400'
+                }`}>
+                  {analysisProgress.success > 0 && `${analysisProgress.success} offert${analysisProgress.success > 1 ? 'er' : ''} analyserade`}
+                  {analysisProgress.success > 0 && analysisProgress.failed > 0 && ', '}
+                  {analysisProgress.failed > 0 && `${analysisProgress.failed} misslyckade`}
+                </p>
+                {analysisProgress.errors.length > 0 && (
+                  <ul className="text-xs text-slate-400 mt-1">
+                    {analysisProgress.errors.map((err, i) => (
+                      <li key={i}>• {err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <button
+                onClick={() => setAnalysisProgress(null)}
+                className="p-1 text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats Bar */}
-      {quotes.length > 0 && (
+      {quotesWithAmount.length > 0 && (
         <div className="border-b border-slate-800 bg-[#12181f]">
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex flex-wrap gap-6">
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide">Antal offerter</p>
-                <p className="text-xl font-bold text-slate-100">{quotes.length}</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Analyserade</p>
+                <p className="text-xl font-bold text-slate-100">{analyzedQuotes.length}</p>
               </div>
+              {pendingQuotes.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Väntar</p>
+                  <p className="text-xl font-bold text-amber-400">{pendingQuotes.length}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wide">Lägsta pris</p>
                 <p className="text-xl font-bold text-green-400 font-mono">
-                  {formatPrice(Math.min(...quotes.filter((q) => q.total_amount).map((q) => q.total_amount!)))}
+                  {formatPrice(Math.min(...quotesWithAmount.map((q) => q.total_amount!)))}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wide">Högsta pris</p>
                 <p className="text-xl font-bold text-red-400 font-mono">
-                  {formatPrice(Math.max(...quotes.filter((q) => q.total_amount).map((q) => q.total_amount!)))}
+                  {formatPrice(Math.max(...quotesWithAmount.map((q) => q.total_amount!)))}
                 </p>
               </div>
               <div>
@@ -218,24 +347,59 @@ export default function CategoryPage({ params }: PageProps) {
               <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-slate-300 mb-2">Inga offerter ännu</h3>
               <p className="text-slate-500 mb-6">
-                Ladda upp PDF eller Excel-filer med offerter för AI-analys
+                Ladda upp PDF eller Excel-filer med offerter
               </p>
               <Button onClick={() => setShowUploader(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Ladda upp offert
+                Ladda upp offerter
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quotes.map((quote) => (
-              <QuoteCard
-                key={quote.id}
-                quote={quote}
-                selected={selectedQuotes.includes(quote.id)}
-                onSelect={() => handleQuoteSelect(quote.id)}
-              />
-            ))}
+          <div className="space-y-8">
+            {/* Pending Quotes Section */}
+            {pendingQuotes.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-amber-400 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5" />
+                    Väntar på analys ({pendingQuotes.length})
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pendingQuotes.map((quote) => (
+                    <QuoteCard
+                      key={quote.id}
+                      quote={quote}
+                      selected={selectedQuotes.includes(quote.id)}
+                      onSelect={() => handleQuoteSelect(quote.id)}
+                      isPending
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Analyzed Quotes Section */}
+            {analyzedQuotes.length > 0 && (
+              <div>
+                {pendingQuotes.length > 0 && (
+                  <h2 className="text-lg font-semibold text-slate-300 mb-4">
+                    Analyserade offerter ({analyzedQuotes.length})
+                  </h2>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {analyzedQuotes.map((quote) => (
+                    <QuoteCard
+                      key={quote.id}
+                      quote={quote}
+                      selected={selectedQuotes.includes(quote.id)}
+                      onSelect={() => handleQuoteSelect(quote.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -244,7 +408,7 @@ export default function CategoryPage({ params }: PageProps) {
       <Modal
         open={showUploader}
         onClose={() => setShowUploader(false)}
-        title="Ladda upp offert"
+        title="Ladda upp offerter"
         size="lg"
       >
         <QuoteUploader

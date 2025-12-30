@@ -56,7 +56,7 @@ export interface Quote {
   extracted_text?: string
   ai_summary?: string
   ai_analysis?: Record<string, unknown>
-  status: 'received' | 'reviewing' | 'selected' | 'rejected'
+  status: 'pending' | 'analyzed' | 'received' | 'reviewing' | 'selected' | 'rejected'
   notes?: string
   created_at: string
   updated_at: string

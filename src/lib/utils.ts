@@ -50,6 +50,8 @@ export function formatDateShort(dateString: string | null | undefined): string {
 
 // Status labels in Swedish
 export const statusLabels: Record<string, string> = {
+  pending: 'Väntar på analys',
+  analyzed: 'Analyserad',
   received: 'Mottagen',
   reviewing: 'Granskas',
   selected: 'Vald',
@@ -58,6 +60,8 @@ export const statusLabels: Record<string, string> = {
 
 // Status colors
 export const statusColors: Record<string, string> = {
+  pending: 'bg-amber-500/20 text-amber-400',
+  analyzed: 'bg-blue-500/20 text-blue-400',
   received: 'bg-blue-500/20 text-blue-400',
   reviewing: 'bg-yellow-500/20 text-yellow-400',
   selected: 'bg-green-500/20 text-green-400',
