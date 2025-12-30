@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { uploadToStorage } from '@/lib/storage'
 
 interface QuoteUploaderProps {
   categoryId: string
@@ -89,23 +90,31 @@ export function QuoteUploader({ categoryId, onUploadComplete }: QuoteUploaderPro
       )
 
       try {
-        // Step 1: Upload and parse file
-        const formData = new FormData()
-        formData.append('file', fileItem.file)
+        // Step 1: Upload file to Supabase Storage (bypasses Vercel's 4.5MB limit)
+        const { path: filePath, error: uploadError } = await uploadToStorage(fileItem.file)
 
-        const uploadRes = await fetch('/api/quotes/upload', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!uploadRes.ok) {
-          const data = await uploadRes.json()
-          throw new Error(data.error || 'Kunde inte ladda upp filen')
+        if (uploadError || !filePath) {
+          throw new Error(uploadError || 'Kunde inte ladda upp filen')
         }
 
-        const { extractedText } = await uploadRes.json()
+        // Step 2: Process the file from storage
+        const processRes = await fetch('/api/files/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filePath,
+            fileName: fileItem.file.name,
+          }),
+        })
 
-        // Step 2: Save to database WITHOUT AI analysis (status: pending)
+        if (!processRes.ok) {
+          const data = await processRes.json()
+          throw new Error(data.error || 'Kunde inte tolka filen')
+        }
+
+        const { extractedText } = await processRes.json()
+
+        // Step 3: Save to database WITHOUT AI analysis (status: pending)
         const quoteRes = await fetch('/api/quotes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -113,6 +122,7 @@ export function QuoteUploader({ categoryId, onUploadComplete }: QuoteUploaderPro
             category_id: categoryId,
             supplier_name: fileItem.file.name.replace(/\.[^/.]+$/, ''), // Filename without extension
             extracted_text: extractedText,
+            file_path: filePath,
             status: 'pending', // Mark as pending for later analysis
           }),
         })

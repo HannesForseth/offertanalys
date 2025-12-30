@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle, BookOpen } from 'lucide-react'
+import { uploadToStorage } from '@/lib/storage'
 
 interface SpecificationUploaderProps {
   projectId: string
@@ -75,23 +76,31 @@ export function SpecificationUploader({ projectId, categoryId, onUploadComplete 
     setError('')
 
     try {
-      // Step 1: Parse the file
-      const formData = new FormData()
-      formData.append('file', file)
+      // Step 1: Upload file to Supabase Storage (bypasses Vercel's 4.5MB limit)
+      const { path: filePath, error: uploadError } = await uploadToStorage(file)
 
-      const uploadRes = await fetch('/api/quotes/upload', {
+      if (uploadError || !filePath) {
+        throw new Error(uploadError || 'Kunde inte ladda upp filen')
+      }
+
+      // Step 2: Process the file from storage
+      const processRes = await fetch('/api/files/process', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filePath,
+          fileName: file.name,
+        }),
       })
 
-      if (!uploadRes.ok) {
-        const data = await uploadRes.json()
+      if (!processRes.ok) {
+        const data = await processRes.json()
         throw new Error(data.error || 'Kunde inte tolka filen')
       }
 
-      const { extractedText } = await uploadRes.json()
+      const { extractedText } = await processRes.json()
 
-      // Step 2: Save specification
+      // Step 3: Save specification
       const specRes = await fetch('/api/specifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -100,6 +109,7 @@ export function SpecificationUploader({ projectId, categoryId, onUploadComplete 
           category_id: categoryId,
           name: name.trim(),
           extracted_text: extractedText,
+          file_path: filePath,
         }),
       })
 
