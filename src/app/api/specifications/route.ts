@@ -17,11 +17,11 @@ export async function GET(request: NextRequest) {
 
     let query = supabase.from('specifications').select('*')
 
-    if (categoryId) {
-      query = query.eq('category_id', categoryId)
-    }
     if (projectId) {
-      query = query.eq('project_id', projectId)
+      // When fetching by projectId, get project-level specs (no category)
+      query = query.eq('project_id', projectId).is('category_id', null)
+    } else if (categoryId) {
+      query = query.eq('category_id', categoryId)
     }
 
     const { data, error } = await query.order('created_at', { ascending: false })
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       .from('specifications')
       .insert({
         project_id,
-        category_id,
+        category_id: category_id || null, // Allow null for project-level specs
         name,
         extracted_text,
         requirements,

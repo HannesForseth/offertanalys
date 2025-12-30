@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
-import { Project, QuoteCategory } from '@/lib/supabase'
+import { SpecificationUploader } from '@/components/specifications/SpecificationUploader'
+import { SpecificationCard } from '@/components/specifications/SpecificationCard'
+import { Project, QuoteCategory, Specification } from '@/lib/supabase'
 import { formatDateShort } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -17,6 +19,9 @@ import {
   Building2,
   MapPin,
   Calendar,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 
 interface PageProps {
@@ -28,35 +33,33 @@ export default function ProjectPage({ params }: PageProps) {
   const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
   const [categories, setCategories] = useState<QuoteCategory[]>([])
+  const [specifications, setSpecifications] = useState<Specification[]>([])
   const [quoteCounts, setQuoteCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [showNewCategory, setShowNewCategory] = useState(false)
+  const [showSpecUploader, setShowSpecUploader] = useState(false)
+  const [showSpecSection, setShowSpecSection] = useState(true)
   const [newCategory, setNewCategory] = useState({ name: '', description: '' })
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    fetchProject()
-    fetchCategories()
+    fetchData()
   }, [id])
 
-  const fetchProject = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch('/api/projects')
-      if (res.ok) {
-        const projects = await res.json()
+      // Fetch project
+      const projectRes = await fetch('/api/projects')
+      if (projectRes.ok) {
+        const projects = await projectRes.json()
         const found = projects.find((p: Project) => p.id === id)
         setProject(found || null)
       }
-    } catch (error) {
-      console.error('Error fetching project:', error)
-    }
-  }
 
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch(`/api/categories?projectId=${id}`)
-      if (res.ok) {
-        const data = await res.json()
+      // Fetch categories
+      const categoryRes = await fetch(`/api/categories?projectId=${id}`)
+      if (categoryRes.ok) {
+        const data = await categoryRes.json()
         setCategories(data)
 
         // Fetch quote counts for each category
@@ -70,8 +73,14 @@ export default function ProjectPage({ params }: PageProps) {
         }
         setQuoteCounts(counts)
       }
+
+      // Fetch project-level specifications
+      const specsRes = await fetch(`/api/specifications?projectId=${id}`)
+      if (specsRes.ok) {
+        setSpecifications(await specsRes.json())
+      }
     } catch (error) {
-      console.error('Error fetching categories:', error)
+      console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
     }
@@ -175,6 +184,85 @@ export default function ProjectPage({ params }: PageProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Specifications Section */}
+        <div className="mb-10">
+          <button
+            onClick={() => setShowSpecSection(!showSpecSection)}
+            className="flex items-center gap-2 text-slate-300 hover:text-slate-100 mb-4"
+          >
+            <BookOpen className="w-5 h-5 text-emerald-400" />
+            <span className="text-lg font-semibold">Tekniska beskrivningar / Föreskrifter</span>
+            <span className="text-xs text-slate-500">({specifications.length})</span>
+            {showSpecSection ? (
+              <ChevronUp className="w-4 h-4 ml-1" />
+            ) : (
+              <ChevronDown className="w-4 h-4 ml-1" />
+            )}
+          </button>
+
+          {showSpecSection && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-400 mb-4">
+                Ladda upp rambeskrivningar och tekniska föreskrifter som gäller för hela projektet.
+                Dessa används vid jämförelse av offerter i alla kategorier.
+              </p>
+
+              {specifications.length === 0 ? (
+                <Card className="border-dashed border-emerald-500/30 bg-emerald-500/5">
+                  <CardContent className="py-8 text-center">
+                    <BookOpen className="w-12 h-12 text-emerald-500/50 mx-auto mb-3" />
+                    <h3 className="text-sm font-medium text-slate-300 mb-2">
+                      Inga tekniska beskrivningar uppladdade
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-4 max-w-md mx-auto">
+                      Ladda upp rambeskrivning VVS, kylbeskrivning, eller andra föreskrifter
+                      för att jämföra offerter mot föreskrivet material
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
+                      onClick={() => setShowSpecUploader(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Ladda upp beskrivning
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {specifications.map((spec) => (
+                    <SpecificationCard
+                      key={spec.id}
+                      specification={spec}
+                      onDelete={fetchData}
+                    />
+                  ))}
+                  <Card
+                    hover
+                    className="border-dashed border-emerald-500/30 cursor-pointer hover:bg-emerald-500/5"
+                    onClick={() => setShowSpecUploader(true)}
+                  >
+                    <CardContent className="py-8 flex flex-col items-center justify-center text-emerald-400 h-full min-h-[140px]">
+                      <Plus className="w-8 h-8 mb-2" />
+                      <span className="text-sm">Lägg till beskrivning</span>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {specifications.length > 0 && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-3">
+                  <BookOpen className="w-5 h-5 text-emerald-400" />
+                  <p className="text-sm text-emerald-400">
+                    {specifications.length} beskrivning{specifications.length > 1 ? 'ar' : ''} tillgänglig{specifications.length > 1 ? 'a' : ''} för offertjämförelse i alla kategorier
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Categories Section */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -274,6 +362,23 @@ export default function ProjectPage({ params }: PageProps) {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Specification Upload Modal */}
+      <Modal
+        open={showSpecUploader}
+        onClose={() => setShowSpecUploader(false)}
+        title="Ladda upp teknisk beskrivning"
+        size="lg"
+      >
+        <SpecificationUploader
+          projectId={id}
+          categoryId=""
+          onUploadComplete={() => {
+            setShowSpecUploader(false)
+            fetchData()
+          }}
+        />
       </Modal>
     </div>
   )

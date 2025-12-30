@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { QuoteUploader } from '@/components/quotes/QuoteUploader'
 import { QuoteCard } from '@/components/quotes/QuoteCard'
-import { SpecificationUploader } from '@/components/specifications/SpecificationUploader'
-import { SpecificationCard } from '@/components/specifications/SpecificationCard'
 import { ComparisonView } from '@/components/analysis/ComparisonView'
 import { Project, QuoteCategory, Quote, Specification } from '@/lib/supabase'
 import { formatPrice } from '@/lib/utils'
@@ -39,10 +37,9 @@ export default function CategoryPage({ params }: PageProps) {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [specifications, setSpecifications] = useState<Specification[]>([])
   const [activeSpecId, setActiveSpecId] = useState<string | null>(null)
+  const [showSpecSelector, setShowSpecSelector] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showUploader, setShowUploader] = useState(false)
-  const [showSpecUploader, setShowSpecUploader] = useState(false)
-  const [showSpecSection, setShowSpecSection] = useState(true)
   const [selectedQuotes, setSelectedQuotes] = useState<string[]>([])
   const [comparing, setComparing] = useState(false)
   const [comparisonResult, setComparisonResult] = useState<Record<string, unknown> | null>(null)
@@ -82,12 +79,12 @@ export default function CategoryPage({ params }: PageProps) {
         setQuotes(await quotesRes.json())
       }
 
-      // Fetch specifications
-      const specsRes = await fetch(`/api/specifications?categoryId=${categoryId}`)
+      // Fetch project-level specifications
+      const specsRes = await fetch(`/api/specifications?projectId=${id}`)
       if (specsRes.ok) {
         const specs = await specsRes.json()
         setSpecifications(specs)
-        // Auto-select first specification if exists
+        // Auto-select first specification if exists and none selected
         if (specs.length > 0 && !activeSpecId) {
           setActiveSpecId(specs[0].id)
         }
@@ -350,12 +347,6 @@ export default function CategoryPage({ params }: PageProps) {
                 <p className="text-xs text-slate-500 uppercase tracking-wide">Snittpris</p>
                 <p className="text-xl font-bold text-slate-300 font-mono">{formatPrice(avgValue)}</p>
               </div>
-              {activeSpec && (
-                <div className="ml-auto flex items-center gap-2 text-emerald-400">
-                  <BookOpen className="w-4 h-4" />
-                  <span className="text-sm">{activeSpec.name}</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -363,82 +354,95 @@ export default function CategoryPage({ params }: PageProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Specifications Section */}
-        <div className="mb-8">
-          <button
-            onClick={() => setShowSpecSection(!showSpecSection)}
-            className="flex items-center gap-2 text-slate-300 hover:text-slate-100 mb-4"
-          >
-            <BookOpen className="w-5 h-5 text-emerald-400" />
-            <span className="font-semibold">Tekniska beskrivningar / Föreskrifter</span>
-            <span className="text-xs text-slate-500">({specifications.length})</span>
-            {showSpecSection ? (
-              <ChevronUp className="w-4 h-4 ml-1" />
-            ) : (
-              <ChevronDown className="w-4 h-4 ml-1" />
-            )}
-          </button>
-
-          {showSpecSection && (
-            <div className="space-y-4">
-              {specifications.length === 0 ? (
-                <Card className="border-dashed border-emerald-500/30 bg-emerald-500/5">
-                  <CardContent className="py-8 text-center">
-                    <BookOpen className="w-12 h-12 text-emerald-500/50 mx-auto mb-3" />
-                    <h3 className="text-sm font-medium text-slate-300 mb-2">
-                      Ingen teknisk beskrivning uppladdad
-                    </h3>
-                    <p className="text-xs text-slate-500 mb-4">
-                      Ladda upp en rambeskrivning för att jämföra offerter mot föreskrivet material
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
-                      onClick={() => setShowSpecUploader(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Ladda upp beskrivning
-                    </Button>
-                  </CardContent>
-                </Card>
+        {/* Specification selector (if specs exist at project level) */}
+        {specifications.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowSpecSelector(!showSpecSelector)}
+              className="flex items-center gap-2 text-slate-400 hover:text-slate-200 text-sm"
+            >
+              <BookOpen className="w-4 h-4 text-emerald-400" />
+              <span>
+                {activeSpec
+                  ? `Jämför mot: ${activeSpec.name}`
+                  : 'Välj teknisk beskrivning för jämförelse'
+                }
+              </span>
+              {showSpecSelector ? (
+                <ChevronUp className="w-4 h-4" />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {specifications.map((spec) => (
-                    <SpecificationCard
-                      key={spec.id}
-                      specification={spec}
-                      isActive={spec.id === activeSpecId}
-                      onToggleActive={() =>
-                        setActiveSpecId(spec.id === activeSpecId ? null : spec.id)
-                      }
-                      onDelete={fetchData}
-                    />
-                  ))}
-                  <Card
-                    hover
-                    className="border-dashed border-emerald-500/30 cursor-pointer hover:bg-emerald-500/5"
-                    onClick={() => setShowSpecUploader(true)}
-                  >
-                    <CardContent className="py-8 flex flex-col items-center justify-center text-emerald-400">
-                      <Plus className="w-8 h-8 mb-2" />
-                      <span className="text-sm">Lägg till beskrivning</span>
-                    </CardContent>
-                  </Card>
-                </div>
+                <ChevronDown className="w-4 h-4" />
               )}
+            </button>
 
-              {activeSpec && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-400" />
-                  <p className="text-sm text-emerald-400">
-                    <strong>{activeSpec.name}</strong> används vid jämförelse - offerter kontrolleras mot föreskrifter
-                  </p>
+            {showSpecSelector && (
+              <div className="mt-3 p-4 bg-[#12181f] border border-slate-700 rounded-lg">
+                <p className="text-xs text-slate-500 mb-3">
+                  Välj vilken teknisk beskrivning som ska användas vid offertjämförelse:
+                </p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setActiveSpecId(null)
+                      setShowSpecSelector(false)
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                      !activeSpecId
+                        ? 'bg-slate-700 text-slate-100'
+                        : 'text-slate-400 hover:bg-slate-800'
+                    }`}
+                  >
+                    Ingen beskrivning (jämför endast offerter)
+                  </button>
+                  {specifications.map((spec) => (
+                    <button
+                      key={spec.id}
+                      onClick={() => {
+                        setActiveSpecId(spec.id)
+                        setShowSpecSelector(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                        activeSpecId === spec.id
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      {spec.name}
+                      {activeSpecId === spec.id && (
+                        <CheckCircle className="w-4 h-4 ml-auto" />
+                      )}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+                <p className="text-xs text-slate-500 mt-3">
+                  <a
+                    href={`/project/${id}`}
+                    className="text-emerald-400 hover:underline"
+                  >
+                    Hantera beskrivningar på projektnivå →
+                  </a>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Active spec indicator */}
+        {activeSpec && !showSpecSelector && (
+          <div className="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 text-emerald-400" />
+            <p className="text-sm text-emerald-400">
+              Offerter jämförs mot <strong>{activeSpec.name}</strong>
+            </p>
+            <button
+              onClick={() => setShowSpecSelector(true)}
+              className="ml-auto text-xs text-emerald-400 hover:underline"
+            >
+              Ändra
+            </button>
+          </div>
+        )}
 
         {/* Selected quotes banner */}
         {selectedQuotes.length > 0 && (
@@ -534,23 +538,6 @@ export default function CategoryPage({ params }: PageProps) {
           categoryId={categoryId}
           onUploadComplete={() => {
             setShowUploader(false)
-            fetchData()
-          }}
-        />
-      </Modal>
-
-      {/* Specification Upload Modal */}
-      <Modal
-        open={showSpecUploader}
-        onClose={() => setShowSpecUploader(false)}
-        title="Ladda upp teknisk beskrivning"
-        size="lg"
-      >
-        <SpecificationUploader
-          projectId={id}
-          categoryId={categoryId}
-          onUploadComplete={() => {
-            setShowSpecUploader(false)
             fetchData()
           }}
         />
