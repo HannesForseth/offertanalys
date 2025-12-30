@@ -87,6 +87,7 @@ export function SpecificationUploader({ projectId, categoryId, onUploadComplete 
       const processRes = await fetch('/api/files/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           filePath,
           fileName: file.name,

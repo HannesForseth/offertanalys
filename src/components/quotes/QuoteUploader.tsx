@@ -101,6 +101,7 @@ export function QuoteUploader({ categoryId, onUploadComplete }: QuoteUploaderPro
         const processRes = await fetch('/api/files/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             filePath,
             fileName: fileItem.file.name,
