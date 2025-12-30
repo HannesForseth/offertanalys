@@ -5,8 +5,8 @@ import { cookies } from 'next/headers'
 export async function GET(request: NextRequest) {
   // Check authentication
   const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) {
+  const authToken = cookieStore.get('auth_token')?.value
+  if (!authToken) {
     return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
   }
 
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   // Check authentication
   const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) {
+  const authToken = cookieStore.get('auth_token')?.value
+  if (!authToken) {
     return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
   }
 
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   // Check authentication
   const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) {
+  const authToken = cookieStore.get('auth_token')?.value
+  if (!authToken) {
     return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
   }
 

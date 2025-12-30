@@ -6,8 +6,8 @@ import { cookies } from 'next/headers'
 export async function POST(request: NextRequest) {
   // Check authentication
   const cookieStore = await cookies()
-  const sessionId = cookieStore.get('session_id')?.value
-  if (!sessionId) {
+  const authToken = cookieStore.get('auth_token')?.value
+  if (!authToken) {
     return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
   }
 
