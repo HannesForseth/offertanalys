@@ -8,7 +8,7 @@ interface ModalProps extends HTMLAttributes<HTMLDivElement> {
   open: boolean
   onClose: () => void
   title?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
 }
 
 export function Modal({
@@ -43,6 +43,7 @@ export function Modal({
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    full: 'max-w-[95vw] max-h-[95vh]',
   }
 
   return (

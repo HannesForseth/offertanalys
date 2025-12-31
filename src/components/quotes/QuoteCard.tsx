@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Quote } from '@/lib/supabase'
 import { formatPrice, formatDateShort, statusLabels, statusColors } from '@/lib/utils'
-import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw, Trash2 } from 'lucide-react'
+import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw, Trash2, Eye } from 'lucide-react'
+import { PDFViewerModal } from '@/components/pdf/PDFViewerModal'
 
 interface QuoteCardProps {
   quote: Quote
@@ -18,6 +20,11 @@ interface QuoteCardProps {
 }
 
 export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onReanalyze, isReanalyzing, onDelete }: QuoteCardProps) {
+  const [showPdfViewer, setShowPdfViewer] = useState(false)
+
+  // Check if file is a PDF
+  const isPdfFile = quote.file_path?.toLowerCase().endsWith('.pdf')
+
   const statusVariant = isPending
     ? 'warning'
     : ({
@@ -77,6 +84,18 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
               <p className="text-2xl font-bold text-cyan-400 font-mono">
                 {formatPrice(quote.total_amount)}
               </p>
+              {isPdfFile && quote.file_path && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowPdfViewer(true)
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 rounded transition-colors"
+                  title="Visa PDF"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              )}
               {onReanalyze && (
                 <button
                   onClick={(e) => {
@@ -158,20 +177,34 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
               <FileText className="w-4 h-4 inline mr-2" />
               Fil uppladdad och tolkad
             </div>
-            {onDelete && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (confirm('Vill du ta bort denna offert?')) {
-                    onDelete()
-                  }
-                }}
-                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                title="Ta bort"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {isPdfFile && quote.file_path && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowPdfViewer(true)
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 rounded transition-colors"
+                  title="Visa PDF"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (confirm('Vill du ta bort denna offert?')) {
+                      onDelete()
+                    }
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                  title="Ta bort"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -182,6 +215,16 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
           </div>
         )}
       </CardContent>
+
+      {/* PDF Viewer Modal */}
+      {isPdfFile && quote.file_path && (
+        <PDFViewerModal
+          open={showPdfViewer}
+          onClose={() => setShowPdfViewer(false)}
+          filePath={quote.file_path}
+          title={`${quote.supplier_name} - Offert`}
+        />
+      )}
     </Card>
   )
 }
