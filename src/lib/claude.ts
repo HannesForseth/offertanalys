@@ -426,11 +426,17 @@ export interface GeneratedCategory {
 }
 
 export async function generateCategoriesFromSpec(specificationText: string): Promise<GeneratedCategory[]> {
+  // Truncate specification text if too long (max ~50k characters to stay within token limits)
+  const maxLength = 50000
+  const truncatedText = specificationText.length > maxLength
+    ? specificationText.substring(0, maxLength) + '\n\n[...text avkortad...]'
+    : specificationText
+
   const prompt = `
 Du är expert på VVS-upphandling i Sverige. Analysera denna tekniska beskrivning (TB/rambeskrivning) och identifiera upphandlingsbara produktkategorier.
 
 TEKNISK BESKRIVNING:
-${specificationText}
+${truncatedText}
 
 UPPGIFT:
 Identifiera alla produktkategorier som bör upphandlas separat. Typiska kategorier inom VVS inkluderar (men är inte begränsade till):
@@ -473,9 +479,10 @@ VIKTIGT:
 
 Svara ENDAST med valid JSON-array, inget annat.`
 
-  const stream = anthropic.messages.stream({
-    model: 'claude-opus-4-5-20251101',
-    max_tokens: 16000,
+  // Use Sonnet 4.5 for faster response (Opus is slower and overkill for this task)
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5-20250929',
+    max_tokens: 8000,
     messages: [
       {
         role: 'user',
@@ -484,7 +491,6 @@ Svara ENDAST med valid JSON-array, inget annat.`
     ],
   })
 
-  const response = await stream.finalMessage()
   const content = response.content[0]
   if (content.type !== 'text') {
     throw new Error('Unexpected response type from Claude')
@@ -589,9 +595,10 @@ Returnera JSON:
 
 Svara ENDAST med valid JSON, inget annat.`
 
-  const stream = anthropic.messages.stream({
-    model: 'claude-opus-4-5-20251101',
-    max_tokens: 4000,
+  // Use Sonnet 4.5 for faster email generation
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5-20250929',
+    max_tokens: 2000,
     messages: [
       {
         role: 'user',
@@ -600,7 +607,6 @@ Svara ENDAST med valid JSON, inget annat.`
     ],
   })
 
-  const response = await stream.finalMessage()
   const content = response.content[0]
   if (content.type !== 'text') {
     throw new Error('Unexpected response type from Claude')
