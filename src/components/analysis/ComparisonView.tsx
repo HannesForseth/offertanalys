@@ -173,9 +173,9 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                         <CheckCircle className="w-4 h-4" />
                         Uppfyller
                       </p>
-                      <ul className="space-y-1 text-slate-400">
+                      <ul className="space-y-1.5 text-slate-400">
                         {supplier.meets_requirements.slice(0, 5).map((req, i) => (
-                          <li key={i} className="truncate">• {req}</li>
+                          <li key={i} className="break-words">• {req}</li>
                         ))}
                         {supplier.meets_requirements.length > 5 && (
                           <li className="text-slate-500">
@@ -192,9 +192,9 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                         <XCircle className="w-4 h-4" />
                         Saknas/Avviker
                       </p>
-                      <ul className="space-y-1 text-slate-400">
+                      <ul className="space-y-1.5 text-slate-400">
                         {supplier.missing_or_deviating.slice(0, 5).map((item, i) => (
-                          <li key={i} className="truncate">• {item}</li>
+                          <li key={i} className="break-words">• {item}</li>
                         ))}
                         {supplier.missing_or_deviating.length > 5 && (
                           <li className="text-slate-500">
@@ -211,9 +211,9 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                         <TrendingUp className="w-4 h-4" />
                         Extra
                       </p>
-                      <ul className="space-y-1 text-slate-400">
+                      <ul className="space-y-1.5 text-slate-400">
                         {supplier.extras_included.slice(0, 5).map((extra, i) => (
-                          <li key={i} className="truncate">• {extra}</li>
+                          <li key={i} className="break-words">• {extra}</li>
                         ))}
                       </ul>
                     </div>

@@ -701,7 +701,9 @@ export default function CategoryPage({ params }: PageProps) {
                     <div className="flex items-center gap-2">
                       {savedComparison && (
                         <span className="text-xs text-slate-500">
-                          Sparad {new Date(savedComparison.updated_at).toLocaleDateString('sv-SE')}
+                          Sparad {savedComparison.updated_at || savedComparison.created_at
+                            ? new Date(savedComparison.updated_at || savedComparison.created_at).toLocaleDateString('sv-SE')
+                            : ''}
                         </span>
                       )}
                       <button

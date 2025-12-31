@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { compareQuotes } from '@/lib/claude'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
+  // Check authentication
+  const cookieStore = await cookies()
+  const authToken = cookieStore.get('auth_token')?.value
+  if (!authToken) {
+    return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
+  }
+
   try {
     const { categoryId, quoteIds, specificationText } = await request.json()
 
@@ -58,57 +66,13 @@ export async function POST(request: NextRequest) {
       specificationText
     )
 
-    // Save comparison to database
-    const { data: savedComparison, error: saveError } = await supabase
-      .from('comparisons')
-      .insert({
-        category_id: categoryId,
-        quote_ids: quoteIds,
-        comparison_summary: comparison.summary,
-        price_analysis: comparison.price_comparison,
-        specification_compliance: comparison.specification_compliance,
-        pros_cons: comparison.pros_cons,
-        recommendation: comparison.recommendation.recommended_supplier,
-        recommendation_reasoning: comparison.recommendation.reasoning,
-      })
-      .select()
-      .single()
-
-    if (saveError) {
-      console.error('Error saving comparison:', saveError)
-    }
-
-    return NextResponse.json({
-      id: savedComparison?.id,
-      ...comparison,
-    })
+    // Return comparison result - saving is handled by /api/comparisons
+    return NextResponse.json(comparison)
   } catch (error) {
     console.error('Error comparing quotes:', error)
     return NextResponse.json(
       { error: 'Kunde inte jämföra offerter. Försök igen.' },
       { status: 500 }
     )
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const categoryId = searchParams.get('categoryId')
-
-    let query = supabase.from('comparisons').select('*')
-
-    if (categoryId) {
-      query = query.eq('category_id', categoryId)
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    return NextResponse.json(data)
-  } catch (error) {
-    console.error('Error fetching comparisons:', error)
-    return NextResponse.json({ error: 'Kunde inte hämta jämförelser' }, { status: 500 })
   }
 }
