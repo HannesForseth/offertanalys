@@ -128,8 +128,8 @@ ${quoteText}
 Svara ENDAST med valid JSON, inget annat.`
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 8000,
+    model: 'claude-opus-4-5-20251101',
+    max_tokens: 32000,
     messages: [
       {
         role: 'user',
@@ -318,8 +318,8 @@ Var noggrann med att:
 Svara ENDAST med valid JSON, inget annat.`
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 8000,
+    model: 'claude-opus-4-5-20251101',
+    max_tokens: 32000,
     messages: [
       {
         role: 'user',
