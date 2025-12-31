@@ -142,6 +142,50 @@ export async function POST(request: NextRequest) {
           throw updateError
         }
 
+        // Auto-create or update supplier in suppliers table
+        if (analysis.supplier?.name) {
+          const supplierName = analysis.supplier.name.trim()
+
+          // Check if supplier already exists (by name)
+          const { data: existingSupplier } = await supabase
+            .from('suppliers')
+            .select('id, contact_email, contact_phone, contact_person')
+            .ilike('name', supplierName)
+            .single()
+
+          if (existingSupplier) {
+            // Update existing supplier with new contact info if we have better data
+            const updates: Record<string, string> = {}
+            if (analysis.supplier.email && !existingSupplier.contact_email) {
+              updates.contact_email = analysis.supplier.email
+            }
+            if (analysis.supplier.phone && !existingSupplier.contact_phone) {
+              updates.contact_phone = analysis.supplier.phone
+            }
+            if (analysis.supplier.contact_person && !existingSupplier.contact_person) {
+              updates.contact_person = analysis.supplier.contact_person
+            }
+
+            if (Object.keys(updates).length > 0) {
+              updates.updated_at = new Date().toISOString()
+              await supabase
+                .from('suppliers')
+                .update(updates)
+                .eq('id', existingSupplier.id)
+            }
+          } else {
+            // Create new supplier
+            await supabase.from('suppliers').insert({
+              name: supplierName,
+              org_number: emptyToNull(analysis.supplier.org_number) || null,
+              contact_email: emptyToNull(analysis.supplier.email) || null,
+              contact_phone: emptyToNull(analysis.supplier.phone) || null,
+              contact_person: emptyToNull(analysis.supplier.contact_person) || null,
+              category_tags: [], // Empty initially, user can add later
+            })
+          }
+        }
+
         // Save quote items if any
         if (analysis.items && analysis.items.length > 0) {
           const items = analysis.items.map((item: Record<string, unknown>, index: number) => ({
