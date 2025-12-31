@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Quote } from '@/lib/supabase'
 import { formatPrice, formatDateShort, statusLabels, statusColors } from '@/lib/utils'
-import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw, Trash2, Eye } from 'lucide-react'
+import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw, Trash2, Eye, Trophy, Check } from 'lucide-react'
 import { PDFViewerModal } from '@/components/pdf/PDFViewerModal'
 
 interface QuoteCardProps {
@@ -17,15 +17,19 @@ interface QuoteCardProps {
   onReanalyze?: () => void
   isReanalyzing?: boolean
   onDelete?: () => void
+  isWinner?: boolean
+  onSelectWinner?: () => void
 }
 
-export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onReanalyze, isReanalyzing, onDelete }: QuoteCardProps) {
+export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onReanalyze, isReanalyzing, onDelete, isWinner, onSelectWinner }: QuoteCardProps) {
   const [showPdfViewer, setShowPdfViewer] = useState(false)
 
   // Check if file is a PDF
   const isPdfFile = quote.file_path?.toLowerCase().endsWith('.pdf')
 
-  const statusVariant = isPending
+  const statusVariant = isWinner
+    ? 'success'
+    : isPending
     ? 'warning'
     : ({
         pending: 'warning',
@@ -36,20 +40,31 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
         rejected: 'danger',
       }[quote.status] as 'info' | 'warning' | 'success' | 'danger')
 
-  const statusLabel = isPending ? 'Väntar på analys' : statusLabels[quote.status] || 'Analyserad'
+  const statusLabel = isWinner
+    ? 'Vald leverantör'
+    : isPending
+    ? 'Väntar på analys'
+    : statusLabels[quote.status] || 'Analyserad'
 
   return (
     <Card
       hover
       className={`cursor-pointer transition-all ${
-        selected ? 'ring-2 ring-cyan-500 border-cyan-500' : ''
+        isWinner
+          ? 'ring-2 ring-green-500 border-green-500 bg-green-500/5'
+          : selected
+          ? 'ring-2 ring-cyan-500 border-cyan-500'
+          : ''
       } ${isPending ? 'border-amber-500/30 bg-amber-500/5' : ''}`}
       onClick={onClick}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base truncate">{quote.supplier_name}</CardTitle>
+            <div className="flex items-center gap-2">
+              {isWinner && <Trophy className="w-5 h-5 text-green-400 flex-shrink-0" />}
+              <CardTitle className={`text-base truncate ${isWinner ? 'text-green-400' : ''}`}>{quote.supplier_name}</CardTitle>
+            </div>
             {quote.quote_number && (
               <p className="text-xs text-slate-500 font-mono mt-1">#{quote.quote_number}</p>
             )}
@@ -125,6 +140,33 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
               )}
             </div>
             {quote.vat_included && <p className="text-xs text-slate-500">inkl. moms</p>}
+
+            {/* Select as winner button */}
+            {onSelectWinner && !isPending && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelectWinner()
+                }}
+                className={`mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isWinner
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : 'bg-slate-700 text-slate-300 hover:bg-green-500/20 hover:text-green-400 hover:border-green-500/30 border border-slate-600'
+                }`}
+              >
+                {isWinner ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Vald leverantör
+                  </>
+                ) : (
+                  <>
+                    <Trophy className="w-4 h-4" />
+                    Välj denna offert
+                  </>
+                )}
+              </button>
+            )}
           </div>
         )}
 

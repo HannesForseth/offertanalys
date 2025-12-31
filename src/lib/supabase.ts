@@ -22,7 +22,21 @@ export interface QuoteCategory {
   project_id: string
   name: string
   description?: string
+  selected_quote_id?: string
   created_at: string
+}
+
+export interface ProjectTodo {
+  id: string
+  project_id: string
+  title: string
+  description?: string
+  completed: boolean
+  priority: 'low' | 'medium' | 'high'
+  due_date?: string
+  category_id?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface Specification {

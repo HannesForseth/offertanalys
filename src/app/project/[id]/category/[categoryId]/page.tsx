@@ -262,6 +262,34 @@ export default function CategoryPage({ params }: PageProps) {
     }
   }
 
+  // Select a quote as winner
+  const handleSelectWinner = async (quoteId: string) => {
+    try {
+      // Toggle: if already selected, deselect
+      const newSelectedId = category?.selected_quote_id === quoteId ? null : quoteId
+
+      const res = await fetch('/api/categories', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: categoryId,
+          selected_quote_id: newSelectedId,
+        }),
+      })
+
+      if (res.ok) {
+        const updatedCategory = await res.json()
+        setCategory(updatedCategory)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Kunde inte välja offert')
+      }
+    } catch (error) {
+      console.error('Error selecting winner:', error)
+      alert('Nätverksfel - kunde inte välja offert')
+    }
+  }
+
   // Re-analyze a single quote
   const handleReanalyze = async (quoteId: string) => {
     setReanalyzingQuoteId(quoteId)
@@ -649,6 +677,8 @@ export default function CategoryPage({ params }: PageProps) {
                           onReanalyze={() => handleReanalyze(quote.id)}
                           isReanalyzing={reanalyzingQuoteId === quote.id}
                           onDelete={() => handleDeleteQuote(quote.id)}
+                          isWinner={category?.selected_quote_id === quote.id}
+                          onSelectWinner={() => handleSelectWinner(quote.id)}
                         />
                       ))}
                     </div>
