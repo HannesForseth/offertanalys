@@ -63,6 +63,15 @@ export async function POST(request: NextRequest) {
         // AI Analysis
         const analysis = await extractQuoteData(quote.extracted_text)
 
+        // Calculate total from items if totals.total is missing or 0
+        let totalAmount = analysis.totals?.total
+        if (!totalAmount && analysis.items && analysis.items.length > 0) {
+          totalAmount = analysis.items.reduce((sum, item) => {
+            const itemTotal = item.total || (item.quantity && item.unit_price ? item.quantity * item.unit_price : 0)
+            return sum + (itemTotal || 0)
+          }, 0)
+        }
+
         // Update quote with analysis results
         const { error: updateError } = await supabase
           .from('quotes')
@@ -74,7 +83,7 @@ export async function POST(request: NextRequest) {
             contact_person: emptyToNull(analysis.supplier?.contact_person),
             contact_email: emptyToNull(analysis.supplier?.email),
             contact_phone: emptyToNull(analysis.supplier?.phone),
-            total_amount: emptyToNull(analysis.totals?.total),
+            total_amount: emptyToNull(totalAmount),
             payment_terms: emptyToNull(analysis.terms?.payment),
             delivery_terms: emptyToNull(analysis.terms?.delivery),
             warranty_period: emptyToNull(analysis.terms?.warranty),

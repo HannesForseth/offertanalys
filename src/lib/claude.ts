@@ -142,14 +142,35 @@ Svara ENDAST med valid JSON, inget annat.`
   }
 
   try {
+    // First, try to parse directly
     return JSON.parse(content.text) as ExtractedQuoteData
   } catch {
-    // Try to extract JSON from the response if it contains extra text
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as ExtractedQuoteData
+    // Try to extract JSON from markdown code blocks
+    let jsonText = content.text
+
+    // Remove markdown code block markers
+    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1].trim()
     }
-    throw new Error('Failed to parse Claude response as JSON')
+
+    try {
+      return JSON.parse(jsonText) as ExtractedQuoteData
+    } catch {
+      // Last resort: try to find JSON object in the text
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]) as ExtractedQuoteData
+        } catch {
+          // Log the problematic response for debugging
+          console.error('Failed to parse Claude response:', content.text.substring(0, 500))
+          throw new Error('Failed to parse Claude response as JSON')
+        }
+      }
+      console.error('No JSON found in Claude response:', content.text.substring(0, 500))
+      throw new Error('Failed to parse Claude response as JSON')
+    }
   }
 }
 
@@ -313,10 +334,26 @@ Svara ENDAST med valid JSON, inget annat.`
   try {
     return JSON.parse(content.text) as ComparisonResult
   } catch {
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as ComparisonResult
+    // Try to extract JSON from markdown code blocks
+    let jsonText = content.text
+    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1].trim()
     }
-    throw new Error('Failed to parse Claude comparison response as JSON')
+
+    try {
+      return JSON.parse(jsonText) as ComparisonResult
+    } catch {
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]) as ComparisonResult
+        } catch {
+          console.error('Failed to parse comparison response:', content.text.substring(0, 500))
+          throw new Error('Failed to parse Claude comparison response as JSON')
+        }
+      }
+      throw new Error('Failed to parse Claude comparison response as JSON')
+    }
   }
 }
