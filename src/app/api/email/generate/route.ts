@@ -3,6 +3,14 @@ import { supabase } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 import { generateQuoteRequestEmail } from '@/lib/claude'
 
+// Force dynamic to prevent caching
+export const dynamic = 'force-dynamic'
+
+// GET - Health check
+export async function GET() {
+  return NextResponse.json({ status: 'ok', endpoint: '/api/email/generate' })
+}
+
 // POST - Generate a quote request email
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
