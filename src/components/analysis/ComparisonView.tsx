@@ -13,18 +13,34 @@ import {
   HelpCircle,
   ThumbsUp,
   ThumbsDown,
+  Layers,
 } from 'lucide-react'
 
 interface ComparisonResult {
   summary: string
+  scope_analysis?: {
+    categories_found: string[]
+    common_categories: string[]
+    scope_differences: Array<{
+      supplier: string
+      extra_categories: string[]
+      extra_value: number
+      missing_categories: string[]
+    }>
+    warning: string
+  }
   price_comparison: {
     ranking: Array<{
       supplier: string
-      total: number
+      total?: number
+      raw_total?: number
+      adjusted_total?: number
+      adjustment_details?: string
       difference_from_lowest: number
       percent_difference: number
     }>
     price_notes: string
+    comparison_basis?: string
   }
   specification_compliance: {
     per_supplier: Array<{
@@ -72,6 +88,62 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
         </CardContent>
       </Card>
 
+      {/* Scope Analysis - Warning about different scope */}
+      {comparison.scope_analysis && comparison.scope_analysis.warning && (
+        <Card className="border-amber-500/50 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              Omfattningsanalys
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-amber-400 font-medium">{comparison.scope_analysis.warning}</p>
+
+              {comparison.scope_analysis.categories_found.length > 0 && (
+                <div>
+                  <p className="text-sm text-slate-400 mb-2">Produktkategorier i offerterna:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {comparison.scope_analysis.categories_found.map((cat, i) => (
+                      <Badge
+                        key={i}
+                        variant={comparison.scope_analysis?.common_categories.includes(cat) ? 'info' : 'warning'}
+                      >
+                        {cat}
+                        {!comparison.scope_analysis?.common_categories.includes(cat) && ' (ej i alla)'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {comparison.scope_analysis.scope_differences.some(d => d.extra_categories.length > 0 || d.missing_categories.length > 0) && (
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-400">Skillnader per leverantör:</p>
+                  {comparison.scope_analysis.scope_differences.map((diff, i) => (
+                    (diff.extra_categories.length > 0 || diff.missing_categories.length > 0) && (
+                      <div key={i} className="p-3 bg-[#1e2a36] rounded-lg text-sm">
+                        <p className="font-medium text-slate-200 mb-1">{diff.supplier}</p>
+                        {diff.extra_categories.length > 0 && (
+                          <p className="text-cyan-400">
+                            + Extra: {diff.extra_categories.join(', ')}
+                            {diff.extra_value > 0 && ` (${formatPrice(diff.extra_value)})`}
+                          </p>
+                        )}
+                        {diff.missing_categories.length > 0 && (
+                          <p className="text-red-400">- Saknas: {diff.missing_categories.join(', ')}</p>
+                        )}
+                      </div>
+                    )
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Price Comparison */}
       <Card>
         <CardHeader>
@@ -82,39 +154,70 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {comparison.price_comparison.ranking.map((item, index) => (
-              <div
-                key={item.supplier}
-                className={`flex items-center justify-between p-4 rounded-lg ${
-                  index === 0
-                    ? 'bg-green-500/10 border border-green-500/30'
-                    : 'bg-[#1e2a36]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                      index === 0
-                        ? 'bg-green-500 text-white'
-                        : 'bg-slate-600 text-slate-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="font-medium text-slate-200">{item.supplier}</p>
-                    {item.difference_from_lowest > 0 && (
-                      <p className="text-sm text-slate-400">
-                        +{formatPrice(item.difference_from_lowest)} ({item.percent_difference.toFixed(1)}% dyrare)
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <p className={`text-xl font-bold font-mono ${index === 0 ? 'text-green-400' : 'text-slate-300'}`}>
-                  {formatPrice(item.total)}
+            {/* Comparison basis info */}
+            {comparison.price_comparison.comparison_basis && (
+              <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg mb-4">
+                <p className="text-sm text-cyan-400 flex items-center gap-2">
+                  <Layers className="w-4 h-4" />
+                  <strong>Jämförelsebas:</strong> {comparison.price_comparison.comparison_basis}
                 </p>
               </div>
-            ))}
+            )}
+
+            {comparison.price_comparison.ranking.map((item, index) => {
+              // Support both old (total) and new (raw_total/adjusted_total) format
+              const displayTotal = item.adjusted_total ?? item.raw_total ?? item.total ?? 0
+              const rawTotal = item.raw_total ?? item.total
+              const hasAdjustment = item.adjusted_total !== undefined && item.raw_total !== undefined && item.adjusted_total !== item.raw_total
+
+              return (
+                <div
+                  key={item.supplier}
+                  className={`p-4 rounded-lg ${
+                    index === 0
+                      ? 'bg-green-500/10 border border-green-500/30'
+                      : 'bg-[#1e2a36]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          index === 0
+                            ? 'bg-green-500 text-white'
+                            : 'bg-slate-600 text-slate-300'
+                        }`}
+                      >
+                        {index + 1}
+                      </span>
+                      <div>
+                        <p className="font-medium text-slate-200">{item.supplier}</p>
+                        {item.difference_from_lowest > 0 && (
+                          <p className="text-sm text-slate-400">
+                            +{formatPrice(item.difference_from_lowest)} ({item.percent_difference.toFixed(1)}% dyrare)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-xl font-bold font-mono ${index === 0 ? 'text-green-400' : 'text-slate-300'}`}>
+                        {formatPrice(displayTotal)}
+                      </p>
+                      {hasAdjustment && rawTotal && (
+                        <p className="text-xs text-slate-500">
+                          Råtotal: {formatPrice(rawTotal)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {item.adjustment_details && (
+                    <p className="mt-2 text-xs text-slate-500 italic">
+                      {item.adjustment_details}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
 
             {comparison.price_comparison.price_notes && (
               <p className="text-sm text-slate-400 mt-4 p-3 bg-[#1e2a36] rounded-lg">
@@ -248,7 +351,7 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                       </p>
                       <ul className="space-y-1 text-sm text-slate-400">
                         {supplier.pros.map((pro, i) => (
-                          <li key={i}>• {pro}</li>
+                          <li key={i} className="break-words">• {pro}</li>
                         ))}
                       </ul>
                     </div>
@@ -262,7 +365,7 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                       </p>
                       <ul className="space-y-1 text-sm text-slate-400">
                         {supplier.cons.map((con, i) => (
-                          <li key={i}>• {con}</li>
+                          <li key={i} className="break-words">• {con}</li>
                         ))}
                       </ul>
                     </div>
@@ -300,7 +403,7 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                 </p>
                 <ul className="text-sm text-slate-400 space-y-1">
                   {comparison.recommendation.caveats.map((caveat, i) => (
-                    <li key={i}>• {caveat}</li>
+                    <li key={i} className="break-words">• {caveat}</li>
                   ))}
                 </ul>
               </div>
@@ -311,7 +414,7 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                 <p className="text-cyan-400 text-sm font-medium mb-2">Förhandlingspunkter</p>
                 <ul className="text-sm text-slate-400 space-y-1">
                   {comparison.recommendation.negotiation_points.map((point, i) => (
-                    <li key={i}>• {point}</li>
+                    <li key={i} className="break-words">• {point}</li>
                   ))}
                 </ul>
               </div>
@@ -336,7 +439,7 @@ export function ComparisonView({ comparison }: ComparisonViewProps) {
                   <Badge variant="default" className="mb-2">
                     {item.supplier}
                   </Badge>
-                  <p className="text-sm text-slate-300">{item.question}</p>
+                  <p className="text-sm text-slate-300 break-words">{item.question}</p>
                 </div>
               ))}
             </div>

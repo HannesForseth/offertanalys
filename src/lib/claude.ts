@@ -180,14 +180,29 @@ Svara ENDAST med valid JSON, inget annat.`
 
 export interface ComparisonResult {
   summary: string
+  scope_analysis?: {
+    categories_found: string[]
+    common_categories: string[]
+    scope_differences: Array<{
+      supplier: string
+      extra_categories: string[]
+      extra_value: number
+      missing_categories: string[]
+    }>
+    warning: string
+  }
   price_comparison: {
     ranking: Array<{
       supplier: string
-      total: number
+      total?: number
+      raw_total?: number
+      adjusted_total?: number
+      adjustment_details?: string
       difference_from_lowest: number
       percent_difference: number
     }>
     price_notes: string
+    comparison_basis?: string
   }
   specification_compliance: {
     per_supplier: Array<{
@@ -198,7 +213,7 @@ export interface ComparisonResult {
       extras_included: string[]
     }>
   }
-  detailed_comparison: {
+  detailed_comparison?: {
     products: {
       summary: string
       differences: string[]
@@ -249,17 +264,51 @@ ${specificationText ? `TEKNISK BESKRIVNING/FÖRESKRIFTER:\n${specificationText}\
 OFFERTER:
 ${JSON.stringify(quotes, null, 2)}
 
+KRITISKT - JÄMFÖRELSE AV LIKVÄRDIGT INNEHÅLL:
+Innan du jämför priser MÅSTE du:
+1. Identifiera ALLA produktkategorier/produkttyper i varje offert (kan vara radiatorer, konvektorer, expansionskärl, shuntar, värmeväxlare, pumpar, ventiler, termostater, tillbehör, montage, frakt, eller VILKEN ANNAN typ av VVS-produkt som helst)
+2. Beräkna ett JUSTERAT JÄMFÖRELSEPRIS som ENDAST inkluderar produktkategorier som finns i ALLA offerter
+3. Om en offert innehåller extra kategorier som andra saknar, räkna ut deras värde och dra av det från totalen för rättvis jämförelse
+4. Prisjämförelsen ska visa BÅDE råtotal OCH justerat pris
+
+Exempel 1: Om offert A innehåller radiatorer (800k) + konvektorer (200k) = 1000k,
+och offert B endast innehåller radiatorer (850k),
+då ska justerat pris för A vara 800k (endast radiatorer) för rättvis jämförelse.
+
+Exempel 2: Om offert A innehåller shuntar (50k) + värmeväxlare (300k) = 350k,
+och offert B innehåller shuntar (45k) + värmeväxlare (280k) + pumpar (80k) = 405k,
+då ska justerat pris för B vara 325k (exkl. pumpar) för rättvis jämförelse mot A.
+
+VAR INTELLIGENT: Analysera produktbeskrivningar noggrant för att identifiera produkttyper även om de inte är explicit kategoriserade.
+
 UPPGIFT:
 Gör en djupgående jämförelse av offerterna och returnera JSON:
 
 {
-  "summary": "Kort sammanfattning av jämförelsen (2-3 meningar)",
+  "summary": "Kort sammanfattning inkl. varning om olika omfattning",
+
+  "scope_analysis": {
+    "categories_found": ["lista alla produktkategorier som hittades i någon offert"],
+    "common_categories": ["kategorier som finns i ALLA offerter"],
+    "scope_differences": [
+      {"supplier": "", "extra_categories": [], "extra_value": 0, "missing_categories": []}
+    ],
+    "warning": "Tydlig varning om offerterna har olika omfattning"
+  },
 
   "price_comparison": {
     "ranking": [
-      {"supplier": "", "total": 0, "difference_from_lowest": 0, "percent_difference": 0}
+      {
+        "supplier": "",
+        "raw_total": 0,
+        "adjusted_total": 0,
+        "adjustment_details": "Vad som dragits av/lagts till för rättvis jämförelse",
+        "difference_from_lowest": 0,
+        "percent_difference": 0
+      }
     ],
-    "price_notes": "Viktiga prisrelaterade observationer"
+    "price_notes": "Viktiga prisrelaterade observationer",
+    "comparison_basis": "Förklaring av vad som jämförs i adjusted_total"
   },
 
   "specification_compliance": {
@@ -269,7 +318,7 @@ Gör en djupgående jämförelse av offerterna och returnera JSON:
         "compliance_score": 0,
         "meets_requirements": ["lista på uppfyllda krav"],
         "missing_or_deviating": ["lista på saknade/avvikande"],
-        "extras_included": ["extra saker som ingår"]
+        "extras_included": ["extra saker som ingår utöver föreskrift"]
       }
     ]
   },
@@ -311,11 +360,12 @@ Gör en djupgående jämförelse av offerterna och returnera JSON:
 }
 
 Var noggrann med att:
-1. Identifiera om offerter har med alla föreskrivna produkter
-2. Jämföra äpplen med äpplen (samma produkttyper)
-3. Notera skillnader i vad som ingår (termostater, konsoler, montage etc.)
-4. Flagga om något saknas enligt teknisk beskrivning
-5. Beakta leveransvillkor och garantier
+1. ALLTID identifiera omfattningsskillnader först - detta är kritiskt!
+2. Beräkna justerade priser för rättvis äpplen-mot-äpplen jämförelse
+3. Tydligt flagga när offerter innehåller olika produktkategorier
+4. Notera skillnader i vad som ingår (termostater, konsoler, montage etc.)
+5. Flagga om något saknas enligt teknisk beskrivning
+6. Beakta leveransvillkor och garantier
 
 Svara ENDAST med valid JSON, inget annat.`
 
