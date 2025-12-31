@@ -8,7 +8,8 @@ import { Modal } from '@/components/ui/Modal'
 import { QuoteUploader } from '@/components/quotes/QuoteUploader'
 import { QuoteCard } from '@/components/quotes/QuoteCard'
 import { ComparisonView } from '@/components/analysis/ComparisonView'
-import { Project, QuoteCategory, Quote, Specification } from '@/lib/supabase'
+import { Project, QuoteCategory, Quote, Specification, CategorySupplier } from '@/lib/supabase'
+import { SupplierRequestPanel } from '@/components/email/SupplierRequestPanel'
 import { formatPrice } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -24,6 +25,7 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Mail,
 } from 'lucide-react'
 
 interface PageProps {
@@ -56,6 +58,8 @@ export default function CategoryPage({ params }: PageProps) {
   const [comparisonResult, setComparisonResult] = useState<Record<string, unknown> | null>(null)
   const [savedComparison, setSavedComparison] = useState<SavedComparison | null>(null)
   const [deletingComparison, setDeletingComparison] = useState(false)
+  const [categorySuppliers, setCategorySuppliers] = useState<CategorySupplier[]>([])
+  const [showSupplierPanel, setShowSupplierPanel] = useState(false)
 
   // Batch analysis state
   const [analyzing, setAnalyzing] = useState(false)
@@ -119,6 +123,12 @@ export default function CategoryPage({ params }: PageProps) {
             setActiveSpecId(comparison.specification_id)
           }
         }
+      }
+
+      // Fetch category suppliers
+      const suppliersRes = await fetch(`/api/category-suppliers?categoryId=${categoryId}`)
+      if (suppliersRes.ok) {
+        setCategorySuppliers(await suppliersRes.json())
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -326,6 +336,60 @@ export default function CategoryPage({ params }: PageProps) {
     }
   }
 
+  // Supplier management handlers
+  const handleAddSupplierToCategory = async (supplierId: string) => {
+    try {
+      const res = await fetch('/api/category-suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category_id: categoryId,
+          supplier_id: supplierId,
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error('Kunde inte lägga till leverantör')
+      }
+
+      fetchData()
+    } catch (error) {
+      console.error('Error adding supplier:', error)
+    }
+  }
+
+  const handleRemoveSupplierFromCategory = async (categorySupplier: CategorySupplier) => {
+    if (!confirm(`Ta bort ${categorySupplier.supplier?.name || 'leverantör'} från kategorin?`)) return
+
+    try {
+      const res = await fetch(`/api/category-suppliers?id=${categorySupplier.id}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        fetchData()
+      }
+    } catch (error) {
+      console.error('Error removing supplier:', error)
+    }
+  }
+
+  const handleUpdateSupplierStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch('/api/category-suppliers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      })
+
+      if (res.ok) {
+        fetchData()
+      }
+    } catch (error) {
+      console.error('Error updating status:', error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0f14] flex items-center justify-center">
@@ -386,6 +450,24 @@ export default function CategoryPage({ params }: PageProps) {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Supplier request button */}
+              <Button
+                variant="secondary"
+                onClick={() => setShowSupplierPanel(!showSupplierPanel)}
+                className={showSupplierPanel
+                  ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                  : "bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-700"
+                }
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Offertförfrågan
+                {categorySuppliers.length > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-cyan-500/20">
+                    {categorySuppliers.length}
+                  </span>
+                )}
+              </Button>
+
               {/* Analyze button for pending quotes */}
               {pendingQuotes.length > 0 && (
                 <Button
@@ -500,6 +582,22 @@ export default function CategoryPage({ params }: PageProps) {
                 <p className="text-xl font-bold text-slate-300 font-mono">{formatPrice(avgValue)}</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Request Panel (collapsible) */}
+      {showSupplierPanel && (
+        <div className="border-b border-slate-800 bg-[#12181f]">
+          <div className="max-w-[1600px] mx-auto px-6 py-6">
+            <SupplierRequestPanel
+              categoryId={categoryId}
+              categorySuppliers={categorySuppliers}
+              onAddSupplier={handleAddSupplierToCategory}
+              onRemoveSupplier={handleRemoveSupplierFromCategory}
+              onUpdateStatus={handleUpdateSupplierStatus}
+              onRefresh={fetchData}
+            />
           </div>
         </div>
       )}

@@ -23,7 +23,44 @@ export interface QuoteCategory {
   name: string
   description?: string
   selected_quote_id?: string
+  scope_description?: string
+  source_specification_id?: string
+  request_deadline?: string
+  generated_email_template?: string
+  status: 'draft' | 'requesting' | 'evaluating' | 'completed'
   created_at: string
+  updated_at?: string
+}
+
+export interface Supplier {
+  id: string
+  name: string
+  org_number?: string
+  category_tags: string[]
+  contact_email?: string
+  contact_phone?: string
+  contact_person?: string
+  address?: string
+  city?: string
+  notes?: string
+  rating?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CategorySupplier {
+  id: string
+  category_id: string
+  supplier_id: string
+  status: 'pending' | 'sent' | 'received' | 'declined' | 'selected'
+  sent_at?: string
+  reminder_sent_at?: string
+  response_deadline?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Joined fields
+  supplier?: Supplier
 }
 
 export interface ProjectTodo {

@@ -17,6 +17,7 @@ import {
   MapPin,
   Calendar,
   FileText,
+  Users,
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -111,10 +112,16 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Logga ut
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => router.push('/dashboard/suppliers')}>
+              <Users className="w-4 h-4 mr-2" />
+              Leverantörer
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logga ut
+            </Button>
+          </div>
         </div>
       </header>
 

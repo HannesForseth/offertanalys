@@ -413,3 +413,221 @@ Svara ENDAST med valid JSON, inget annat.`
     }
   }
 }
+
+// ============================================
+// Category Generation from Specification (TB)
+// ============================================
+
+export interface GeneratedCategory {
+  name: string
+  scope_description: string
+  suggested_tags: string[]
+  estimated_value_range?: string
+}
+
+export async function generateCategoriesFromSpec(specificationText: string): Promise<GeneratedCategory[]> {
+  const prompt = `
+Du är expert på VVS-upphandling i Sverige. Analysera denna tekniska beskrivning (TB/rambeskrivning) och identifiera upphandlingsbara produktkategorier.
+
+TEKNISK BESKRIVNING:
+${specificationText}
+
+UPPGIFT:
+Identifiera alla produktkategorier som bör upphandlas separat. Typiska kategorier inom VVS inkluderar (men är inte begränsade till):
+- Radiatorer
+- Konvektorer
+- Golvvärme
+- Cirkulationspumpar
+- Expansionskärl
+- Shuntgrupper
+- Värmeväxlare
+- Ventiler och styrdon
+- Rörisolering
+- Sanitetsporslin
+- Blandare
+- Avlopp
+- etc.
+
+För VARJE kategori, ange:
+1. name: Kategorinamn (t.ex. "Radiatorer", "Cirkulationspumpar")
+2. scope_description: Detaljerad beskrivning av omfattning med kvantiteter, typer, dimensioner
+3. suggested_tags: Array med söktaggar för att hitta leverantörer (t.ex. ["radiatorer", "värme", "plåtradiatorer"])
+4. estimated_value_range: Ungefärligt prisintervall om möjligt (t.ex. "200 000 - 400 000 kr")
+
+Returnera JSON-array:
+[
+  {
+    "name": "Radiatorer",
+    "scope_description": "Plåtradiatorer typ 22, ca 45 st i olika storlekar. Totalt ca 850 lpm. Inkl. konsoler och termostater.",
+    "suggested_tags": ["radiatorer", "plåtradiatorer", "värme", "typ 22"],
+    "estimated_value_range": "200 000 - 350 000 kr"
+  }
+]
+
+VIKTIGT:
+- Var specifik med kvantiteter och typer
+- Inkludera ALLA produktkategorier du hittar
+- Om en kategori nämns men utan detaljer, ta med den ändå med en generell beskrivning
+- Taggar ska vara relevanta för leverantörssökning
+- Använd svenska termer
+
+Svara ENDAST med valid JSON-array, inget annat.`
+
+  const stream = anthropic.messages.stream({
+    model: 'claude-opus-4-5-20251101',
+    max_tokens: 16000,
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+  })
+
+  const response = await stream.finalMessage()
+  const content = response.content[0]
+  if (content.type !== 'text') {
+    throw new Error('Unexpected response type from Claude')
+  }
+
+  try {
+    return JSON.parse(content.text) as GeneratedCategory[]
+  } catch {
+    let jsonText = content.text
+    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1].trim()
+    }
+
+    try {
+      return JSON.parse(jsonText) as GeneratedCategory[]
+    } catch {
+      const jsonMatch = jsonText.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]) as GeneratedCategory[]
+        } catch {
+          console.error('Failed to parse categories response:', content.text.substring(0, 500))
+          throw new Error('Failed to parse Claude categories response as JSON')
+        }
+      }
+      throw new Error('Failed to parse Claude categories response as JSON')
+    }
+  }
+}
+
+// ============================================
+// Quote Request Email Generation
+// ============================================
+
+export interface GeneratedEmail {
+  subject: string
+  body: string
+}
+
+export interface EmailGenerationParams {
+  projectName: string
+  projectAddress?: string
+  clientName?: string
+  categoryName: string
+  scopeDescription: string
+  specificationExcerpt?: string
+  supplierName: string
+  contactPerson?: string
+  deadline: string
+  companyName?: string
+}
+
+export async function generateQuoteRequestEmail(params: EmailGenerationParams): Promise<GeneratedEmail> {
+  const {
+    projectName,
+    projectAddress,
+    categoryName,
+    scopeDescription,
+    specificationExcerpt,
+    supplierName,
+    contactPerson,
+    deadline,
+    companyName = 'Installationsbolaget Stockholm AB',
+  } = params
+
+  const prompt = `
+Generera en professionell offertförfrågan på svenska.
+
+KONTEXT:
+- Avsändare: ${companyName}
+- Mottagare: ${supplierName}
+- Kontaktperson: ${contactPerson || '(okänd)'}
+- Projekt: ${projectName}
+- Projektadress: ${projectAddress || '(ej angiven)'}
+- Kategori: ${categoryName}
+- Svarsdatum: ${deadline}
+
+OMFATTNING:
+${scopeDescription}
+
+${specificationExcerpt ? `UTDRAG FRÅN TEKNISK BESKRIVNING:\n${specificationExcerpt}\n` : ''}
+
+INSTRUKTIONER:
+1. Skriv ett professionellt men vänligt mail
+2. Använd "Hej ${contactPerson || '[Förnamn]'}," som hälsningsfras (svenskt affärsspråk)
+3. Strukturera med tydliga rubriker i VERSALER
+4. Avsluta med "Med vänlig hälsning"
+5. Håll mailet koncist men informativt
+6. Be om:
+   - Specificerade à-priser per enhet där relevant
+   - Leveranstid
+   - Offertgiltighet (minst 30 dagar)
+   - Leveransvillkor
+
+FORMAT:
+Returnera JSON:
+{
+  "subject": "Offertförfrågan - [Kategori] - [Projekt]",
+  "body": "Mailtext med radbrytningar som \\n"
+}
+
+Svara ENDAST med valid JSON, inget annat.`
+
+  const stream = anthropic.messages.stream({
+    model: 'claude-opus-4-5-20251101',
+    max_tokens: 4000,
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+  })
+
+  const response = await stream.finalMessage()
+  const content = response.content[0]
+  if (content.type !== 'text') {
+    throw new Error('Unexpected response type from Claude')
+  }
+
+  try {
+    return JSON.parse(content.text) as GeneratedEmail
+  } catch {
+    let jsonText = content.text
+    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1].trim()
+    }
+
+    try {
+      return JSON.parse(jsonText) as GeneratedEmail
+    } catch {
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]) as GeneratedEmail
+        } catch {
+          console.error('Failed to parse email response:', content.text.substring(0, 500))
+          throw new Error('Failed to parse Claude email response as JSON')
+        }
+      }
+      throw new Error('Failed to parse Claude email response as JSON')
+    }
+  }
+}

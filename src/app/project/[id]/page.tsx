@@ -28,7 +28,9 @@ import {
   Trash2,
   ListTodo,
   CheckCheck,
+  Sparkles,
 } from 'lucide-react'
+import { CategoryWizard } from '@/components/categories/CategoryWizard'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -54,6 +56,7 @@ export default function ProjectPage({ params }: PageProps) {
   const [creating, setCreating] = useState(false)
   const [newTodoTitle, setNewTodoTitle] = useState('')
   const [addingTodo, setAddingTodo] = useState(false)
+  const [showCategoryWizard, setShowCategoryWizard] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -463,10 +466,22 @@ export default function ProjectPage({ params }: PageProps) {
                   <Layers className="w-5 h-5 text-cyan-400" />
                   <h2 className="text-lg font-semibold text-slate-100">Offertkategorier</h2>
                 </div>
-                <Button onClick={() => setShowNewCategory(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ny kategori
-                </Button>
+                <div className="flex gap-2">
+                  {specifications.length > 0 && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setShowCategoryWizard(true)}
+                      className="bg-purple-600/20 text-purple-400 border-purple-500/30 hover:bg-purple-600/30"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Skapa från TB
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowNewCategory(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ny kategori
+                  </Button>
+                </div>
               </div>
 
               {categories.length === 0 ? (
@@ -652,6 +667,15 @@ export default function ProjectPage({ params }: PageProps) {
           }}
         />
       </Modal>
+
+      {/* Category Wizard Modal */}
+      <CategoryWizard
+        open={showCategoryWizard}
+        onClose={() => setShowCategoryWizard(false)}
+        projectId={id}
+        specifications={specifications}
+        onCategoriesCreated={fetchData}
+      />
     </div>
   )
 }
