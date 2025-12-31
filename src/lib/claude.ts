@@ -127,7 +127,8 @@ ${quoteText}
 
 Svara ENDAST med valid JSON, inget annat.`
 
-  const response = await anthropic.messages.create({
+  // Use streaming for long requests (required for Opus with high token limits)
+  const stream = anthropic.messages.stream({
     model: 'claude-opus-4-5-20251101',
     max_tokens: 32000,
     messages: [
@@ -138,6 +139,7 @@ Svara ENDAST med valid JSON, inget annat.`
     ],
   })
 
+  const response = await stream.finalMessage()
   const content = response.content[0]
   if (content.type !== 'text') {
     throw new Error('Unexpected response type from Claude')
@@ -317,7 +319,8 @@ Var noggrann med att:
 
 Svara ENDAST med valid JSON, inget annat.`
 
-  const response = await anthropic.messages.create({
+  // Use streaming for long requests (required for Opus with high token limits)
+  const stream = anthropic.messages.stream({
     model: 'claude-opus-4-5-20251101',
     max_tokens: 32000,
     messages: [
@@ -328,6 +331,7 @@ Svara ENDAST med valid JSON, inget annat.`
     ],
   })
 
+  const response = await stream.finalMessage()
   const content = response.content[0]
   if (content.type !== 'text') {
     throw new Error('Unexpected response type from Claude')
