@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { extractQuoteData } from '@/lib/claude'
+import { parsePDF } from '@/lib/parsers/pdf'
+import { parseExcel } from '@/lib/parsers/excel'
 import { cookies } from 'next/headers'
 
 // Helper to convert empty strings to null (PostgreSQL doesn't accept "" for dates/numbers)
@@ -59,14 +61,51 @@ export async function POST(request: NextRequest) {
     // Analyze each quote
     for (const quote of quotes) {
       try {
-        if (!quote.extracted_text) {
+        let textToAnalyze = quote.extracted_text
+
+        // If no extracted text but we have a file, try to re-extract
+        if (!textToAnalyze && quote.file_path) {
+          console.log(`Re-extracting text from file for ${quote.supplier_name}`)
+
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from('documents')
+            .download(quote.file_path)
+
+          if (downloadError) {
+            results.failed++
+            results.errors.push(`${quote.supplier_name}: Kunde inte hämta filen - ${downloadError.message}`)
+            continue
+          }
+
+          const arrayBuffer = await fileData.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+
+          // Parse based on file extension
+          const fileName = quote.file_path.toLowerCase()
+          if (fileName.endsWith('.pdf')) {
+            textToAnalyze = await parsePDF(buffer)
+          } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+            const result = parseExcel(buffer)
+            textToAnalyze = result.text
+          }
+
+          // Update the quote with the extracted text
+          if (textToAnalyze) {
+            await supabase
+              .from('quotes')
+              .update({ extracted_text: textToAnalyze })
+              .eq('id', quote.id)
+          }
+        }
+
+        if (!textToAnalyze) {
           results.failed++
-          results.errors.push(`${quote.supplier_name}: Ingen text extraherad`)
+          results.errors.push(`${quote.supplier_name}: Ingen text kunde extraheras från filen`)
           continue
         }
 
         // AI Analysis
-        const analysis = await extractQuoteData(quote.extracted_text)
+        const analysis = await extractQuoteData(textToAnalyze)
 
         // Calculate total from items if totals.total is missing or 0
         let totalAmount = analysis.totals?.total
