@@ -32,13 +32,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch category with project info
+    // Fetch category with project info (avoid joins that could return multiple rows)
     const { data: category, error: categoryError } = await supabase
       .from('quote_categories')
       .select(`
         *,
-        project:projects(*),
-        specification:specifications(*)
+        project:projects(*)
       `)
       .eq('id', categoryId)
       .single()
@@ -46,6 +45,17 @@ export async function POST(request: NextRequest) {
     if (categoryError || !category) {
       console.error('Category fetch error:', { categoryId, categoryError })
       return NextResponse.json({ error: 'Kategorin hittades inte', details: categoryError?.message }, { status: 404 })
+    }
+
+    // Fetch project separately if needed and not already loaded
+    let project = category.project
+    if (!project && category.project_id) {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', category.project_id)
+        .single()
+      project = projectData
     }
 
     // Fetch supplier
@@ -80,9 +90,9 @@ export async function POST(request: NextRequest) {
 
     // Generate the email using Claude
     const email = await generateQuoteRequestEmail({
-      projectName: category.project?.name || 'Okänt projekt',
-      projectAddress: category.project?.address,
-      clientName: category.project?.client,
+      projectName: project?.name || 'Okänt projekt',
+      projectAddress: project?.address,
+      clientName: project?.client,
       categoryName: category.name,
       scopeDescription: category.scope_description || category.description || category.name,
       specificationExcerpt,
