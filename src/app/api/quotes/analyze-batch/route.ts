@@ -11,6 +11,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 })
   }
 
+  // Check for API key
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('ANTHROPIC_API_KEY is not set')
+    return NextResponse.json({ error: 'AI-tjänsten är inte konfigurerad' }, { status: 500 })
+  }
+
   try {
     const { quoteIds } = await request.json()
 
@@ -103,9 +109,16 @@ export async function POST(request: NextRequest) {
         results.success++
       } catch (err) {
         results.failed++
-        results.errors.push(
-          `${quote.supplier_name}: ${err instanceof Error ? err.message : 'Okänt fel'}`
-        )
+        let errorMessage = 'Okänt fel'
+        if (err instanceof Error) {
+          errorMessage = err.message
+        } else if (typeof err === 'string') {
+          errorMessage = err
+        } else if (err && typeof err === 'object' && 'message' in err) {
+          errorMessage = String((err as { message: unknown }).message)
+        }
+        console.error(`Analysis error for ${quote.supplier_name}:`, err)
+        results.errors.push(`${quote.supplier_name}: ${errorMessage}`)
       }
     }
 
