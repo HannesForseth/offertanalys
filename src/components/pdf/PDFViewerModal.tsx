@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import dynamic from 'next/dynamic'
+import { useState, useCallback, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import {
@@ -15,24 +14,6 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react'
-
-// Dynamically import react-pdf components (client-side only)
-const Document = dynamic(
-  () => import('react-pdf').then((mod) => mod.Document),
-  { ssr: false }
-)
-const Page = dynamic(
-  () => import('react-pdf').then((mod) => mod.Page),
-  { ssr: false }
-)
-
-// Import styles
-import 'react-pdf/dist/Page/AnnotationLayer.css'
-import 'react-pdf/dist/Page/TextLayer.css'
-
-// Configure PDF.js worker
-import { pdfjs } from 'react-pdf'
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 interface PDFViewerModalProps {
   open: boolean
@@ -49,8 +30,31 @@ export function PDFViewerModal({ open, onClose, filePath, title }: PDFViewerModa
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [isFullWidth, setIsFullWidth] = useState<boolean>(false)
+  const [pdfComponents, setPdfComponents] = useState<{
+    Document: React.ComponentType<any>
+    Page: React.ComponentType<any>
+  } | null>(null)
 
   const pdfUrl = `/api/files/view?path=${encodeURIComponent(filePath)}`
+
+  // Load react-pdf dynamically on client side
+  useEffect(() => {
+    if (open && !pdfComponents) {
+      import('react-pdf').then((reactPdf) => {
+        // Configure worker
+        reactPdf.pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${reactPdf.pdfjs.version}/build/pdf.worker.min.mjs`
+
+        setPdfComponents({
+          Document: reactPdf.Document,
+          Page: reactPdf.Page,
+        })
+      }).catch((err) => {
+        console.error('Failed to load react-pdf:', err)
+        setError('Kunde inte ladda PDF-komponenten')
+        setLoading(false)
+      })
+    }
+  }, [open, pdfComponents])
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
     setNumPages(numPages)
@@ -58,9 +62,9 @@ export function PDFViewerModal({ open, onClose, filePath, title }: PDFViewerModa
     setError(null)
   }, [])
 
-  const onDocumentLoadError = useCallback((error: Error) => {
-    console.error('Error loading PDF:', error)
-    setError('Kunde inte ladda PDF-filen')
+  const onDocumentLoadError = useCallback((err: Error) => {
+    console.error('Error loading PDF:', err)
+    setError('Kunde inte ladda PDF-filen. Kontrollera att filen finns.')
     setLoading(false)
   }, [])
 
@@ -97,13 +101,15 @@ export function PDFViewerModal({ open, onClose, filePath, title }: PDFViewerModa
     setRotation(0)
   }
 
-  // Reset state when modal opens
+  // Reset state when modal closes
   const handleClose = () => {
     resetView()
     setLoading(true)
     setError(null)
     onClose()
   }
+
+  const { Document, Page } = pdfComponents || {}
 
   return (
     <Modal
@@ -204,11 +210,18 @@ export function PDFViewerModal({ open, onClose, filePath, title }: PDFViewerModa
           {error ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <p className="text-red-400 mb-4">{error}</p>
-              <Button variant="secondary" onClick={() => window.location.reload()}>
+              <Button variant="secondary" onClick={() => {
+                setError(null)
+                setLoading(true)
+              }}>
                 Försök igen
               </Button>
             </div>
-          ) : (
+          ) : !pdfComponents ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+            </div>
+          ) : Document && Page ? (
             <Document
               file={pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
@@ -234,7 +247,7 @@ export function PDFViewerModal({ open, onClose, filePath, title }: PDFViewerModa
                 renderAnnotationLayer={true}
               />
             </Document>
-          )}
+          ) : null}
         </div>
 
         {/* Page input for quick navigation */}
