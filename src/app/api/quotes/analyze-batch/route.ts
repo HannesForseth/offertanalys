@@ -3,6 +3,12 @@ import { supabase } from '@/lib/supabase'
 import { extractQuoteData } from '@/lib/claude'
 import { cookies } from 'next/headers'
 
+// Helper to convert empty strings to null (PostgreSQL doesn't accept "" for dates/numbers)
+function emptyToNull<T>(value: T): T | null {
+  if (value === '' || value === undefined) return null
+  return value
+}
+
 export async function POST(request: NextRequest) {
   // Check authentication
   const cookieStore = await cookies()
@@ -62,16 +68,16 @@ export async function POST(request: NextRequest) {
           .from('quotes')
           .update({
             supplier_name: analysis.supplier?.name || quote.supplier_name,
-            quote_number: analysis.quote_info?.quote_number,
-            quote_date: analysis.quote_info?.date,
-            valid_until: analysis.quote_info?.valid_until,
-            contact_person: analysis.supplier?.contact_person,
-            contact_email: analysis.supplier?.email,
-            contact_phone: analysis.supplier?.phone,
-            total_amount: analysis.totals?.total,
-            payment_terms: analysis.terms?.payment,
-            delivery_terms: analysis.terms?.delivery,
-            warranty_period: analysis.terms?.warranty,
+            quote_number: emptyToNull(analysis.quote_info?.quote_number),
+            quote_date: emptyToNull(analysis.quote_info?.date),
+            valid_until: emptyToNull(analysis.quote_info?.valid_until),
+            contact_person: emptyToNull(analysis.supplier?.contact_person),
+            contact_email: emptyToNull(analysis.supplier?.email),
+            contact_phone: emptyToNull(analysis.supplier?.phone),
+            total_amount: emptyToNull(analysis.totals?.total),
+            payment_terms: emptyToNull(analysis.terms?.payment),
+            delivery_terms: emptyToNull(analysis.terms?.delivery),
+            warranty_period: emptyToNull(analysis.terms?.warranty),
             ai_summary: `${analysis.supplier?.name || 'Offert'} - ${analysis.items?.length || 0} artiklar`,
             ai_analysis: analysis,
             status: 'analyzed',
