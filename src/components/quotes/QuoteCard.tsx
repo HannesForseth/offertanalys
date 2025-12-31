@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Quote } from '@/lib/supabase'
 import { formatPrice, formatDateShort, statusLabels, statusColors } from '@/lib/utils'
-import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw, Trash2, Eye, Trophy, Check } from 'lucide-react'
+import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw, Trash2, Eye, Trophy, Check, Table } from 'lucide-react'
 import { PDFViewerModal } from '@/components/pdf/PDFViewerModal'
+import { ExcelViewerModal } from '@/components/excel/ExcelViewerModal'
 
 interface QuoteCardProps {
   quote: Quote
@@ -23,9 +24,11 @@ interface QuoteCardProps {
 
 export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onReanalyze, isReanalyzing, onDelete, isWinner, onSelectWinner }: QuoteCardProps) {
   const [showPdfViewer, setShowPdfViewer] = useState(false)
+  const [showExcelViewer, setShowExcelViewer] = useState(false)
 
-  // Check if file is a PDF
+  // Check if file is a PDF or Excel
   const isPdfFile = quote.file_path?.toLowerCase().endsWith('.pdf')
+  const isExcelFile = quote.file_path?.toLowerCase().match(/\.(xlsx?|xls)$/)
 
   const statusVariant = isWinner
     ? 'success'
@@ -109,6 +112,18 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
                   title="Visa PDF"
                 >
                   <Eye className="w-4 h-4" />
+                </button>
+              )}
+              {isExcelFile && quote.file_path && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowExcelViewer(true)
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-green-400 hover:bg-slate-700 rounded transition-colors"
+                  title="Visa Excel"
+                >
+                  <Table className="w-4 h-4" />
                 </button>
               )}
               {onReanalyze && (
@@ -232,6 +247,18 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
                   <Eye className="w-4 h-4" />
                 </button>
               )}
+              {isExcelFile && quote.file_path && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowExcelViewer(true)
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-green-400 hover:bg-slate-700 rounded transition-colors"
+                  title="Visa Excel"
+                >
+                  <Table className="w-4 h-4" />
+                </button>
+              )}
               {onDelete && (
                 <button
                   onClick={(e) => {
@@ -263,6 +290,16 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
         <PDFViewerModal
           open={showPdfViewer}
           onClose={() => setShowPdfViewer(false)}
+          filePath={quote.file_path}
+          title={`${quote.supplier_name} - Offert`}
+        />
+      )}
+
+      {/* Excel Viewer Modal */}
+      {isExcelFile && quote.file_path && (
+        <ExcelViewerModal
+          open={showExcelViewer}
+          onClose={() => setShowExcelViewer(false)}
           filePath={quote.file_path}
           title={`${quote.supplier_name} - Offert`}
         />
