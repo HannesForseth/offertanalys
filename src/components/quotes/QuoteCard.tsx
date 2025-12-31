@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Quote } from '@/lib/supabase'
 import { formatPrice, formatDateShort, statusLabels, statusColors } from '@/lib/utils'
-import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw } from 'lucide-react'
+import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw, Trash2 } from 'lucide-react'
 
 interface QuoteCardProps {
   quote: Quote
@@ -14,9 +14,10 @@ interface QuoteCardProps {
   isPending?: boolean
   onReanalyze?: () => void
   isReanalyzing?: boolean
+  onDelete?: () => void
 }
 
-export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onReanalyze, isReanalyzing }: QuoteCardProps) {
+export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onReanalyze, isReanalyzing, onDelete }: QuoteCardProps) {
   const statusVariant = isPending
     ? 'warning'
     : ({
@@ -89,6 +90,20 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
                   <RefreshCw className={`w-4 h-4 ${isReanalyzing ? 'animate-spin' : ''}`} />
                 </button>
               )}
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (confirm('Vill du ta bort denna offert?')) {
+                      onDelete()
+                    }
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                  title="Ta bort"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
             {quote.vat_included && <p className="text-xs text-slate-500">inkl. moms</p>}
           </div>
@@ -138,9 +153,25 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onRea
 
         {/* File info for pending */}
         {isPending && (
-          <div className="text-sm text-slate-500">
-            <FileText className="w-4 h-4 inline mr-2" />
-            Fil uppladdad och tolkad
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-slate-500">
+              <FileText className="w-4 h-4 inline mr-2" />
+              Fil uppladdad och tolkad
+            </div>
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (confirm('Vill du ta bort denna offert?')) {
+                    onDelete()
+                  }
+                }}
+                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                title="Ta bort"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         )}
 

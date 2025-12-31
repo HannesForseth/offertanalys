@@ -175,6 +175,27 @@ export default function CategoryPage({ params }: PageProps) {
     }
   }
 
+  // Delete a quote
+  const handleDeleteQuote = async (quoteId: string) => {
+    try {
+      const res = await fetch(`/api/quotes?id=${quoteId}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        // Remove from selected if it was selected
+        setSelectedQuotes((prev) => prev.filter((id) => id !== quoteId))
+        fetchData()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Kunde inte ta bort offerten')
+      }
+    } catch (error) {
+      console.error('Error deleting quote:', error)
+      alert('Nätverksfel - kunde inte ta bort offerten')
+    }
+  }
+
   // Re-analyze a single quote
   const handleReanalyze = async (quoteId: string) => {
     setReanalyzingQuoteId(quoteId)
@@ -534,6 +555,7 @@ export default function CategoryPage({ params }: PageProps) {
                       selected={selectedQuotes.includes(quote.id)}
                       onSelect={() => handleQuoteSelect(quote.id)}
                       isPending
+                      onDelete={() => handleDeleteQuote(quote.id)}
                     />
                   ))}
                 </div>
@@ -557,6 +579,7 @@ export default function CategoryPage({ params }: PageProps) {
                       onSelect={() => handleQuoteSelect(quote.id)}
                       onReanalyze={() => handleReanalyze(quote.id)}
                       isReanalyzing={reanalyzingQuoteId === quote.id}
+                      onDelete={() => handleDeleteQuote(quote.id)}
                     />
                   ))}
                 </div>
