@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Quote } from '@/lib/supabase'
 import { formatPrice, formatDateShort, statusLabels, statusColors } from '@/lib/utils'
-import { Building2, Calendar, Phone, Mail, FileText, Clock } from 'lucide-react'
+import { Building2, Calendar, Phone, Mail, FileText, Clock, RefreshCw } from 'lucide-react'
 
 interface QuoteCardProps {
   quote: Quote
@@ -12,9 +12,11 @@ interface QuoteCardProps {
   onSelect?: () => void
   onClick?: () => void
   isPending?: boolean
+  onReanalyze?: () => void
+  isReanalyzing?: boolean
 }
 
-export function QuoteCard({ quote, selected, onSelect, onClick, isPending }: QuoteCardProps) {
+export function QuoteCard({ quote, selected, onSelect, onClick, isPending, onReanalyze, isReanalyzing }: QuoteCardProps) {
   const statusVariant = isPending
     ? 'warning'
     : ({
@@ -70,9 +72,24 @@ export function QuoteCard({ quote, selected, onSelect, onClick, isPending }: Quo
           </div>
         ) : (
           <div className="mb-4">
-            <p className="text-2xl font-bold text-cyan-400 font-mono">
-              {formatPrice(quote.total_amount)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-bold text-cyan-400 font-mono">
+                {formatPrice(quote.total_amount)}
+              </p>
+              {onReanalyze && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onReanalyze()
+                  }}
+                  disabled={isReanalyzing}
+                  className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                  title="Analysera om"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isReanalyzing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+            </div>
             {quote.vat_included && <p className="text-xs text-slate-500">inkl. moms</p>}
           </div>
         )}

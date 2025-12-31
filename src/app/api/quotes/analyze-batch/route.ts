@@ -24,18 +24,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { quoteIds } = await request.json()
+    const { quoteIds, reanalyze } = await request.json()
 
     if (!quoteIds || !Array.isArray(quoteIds) || quoteIds.length === 0) {
       return NextResponse.json({ error: 'Inga offerter valda' }, { status: 400 })
     }
 
-    // Fetch quotes that need analysis
-    const { data: quotes, error: fetchError } = await supabase
+    // Fetch quotes - if reanalyze is true, include already analyzed quotes
+    let query = supabase
       .from('quotes')
       .select('*')
       .in('id', quoteIds)
-      .eq('status', 'pending')
+
+    if (!reanalyze) {
+      query = query.eq('status', 'pending')
+    }
+
+    const { data: quotes, error: fetchError } = await query
 
     if (fetchError) {
       throw fetchError

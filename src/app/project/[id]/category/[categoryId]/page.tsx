@@ -47,6 +47,7 @@ export default function CategoryPage({ params }: PageProps) {
 
   // Batch analysis state
   const [analyzing, setAnalyzing] = useState(false)
+  const [reanalyzingQuoteId, setReanalyzingQuoteId] = useState<string | null>(null)
   const [analysisProgress, setAnalysisProgress] = useState<{
     success: number
     failed: number
@@ -171,6 +172,42 @@ export default function CategoryPage({ params }: PageProps) {
       })
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  // Re-analyze a single quote
+  const handleReanalyze = async (quoteId: string) => {
+    setReanalyzingQuoteId(quoteId)
+    setAnalysisProgress(null)
+
+    try {
+      const res = await fetch('/api/quotes/analyze-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quoteIds: [quoteId], reanalyze: true }),
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        setAnalysisProgress(result)
+        fetchData()
+      } else {
+        const error = await res.json()
+        setAnalysisProgress({
+          success: 0,
+          failed: 1,
+          errors: [error.error || 'Kunde inte analysera offerten'],
+        })
+      }
+    } catch (error) {
+      console.error('Error reanalyzing quote:', error)
+      setAnalysisProgress({
+        success: 0,
+        failed: 1,
+        errors: ['Nätverksfel - kontrollera din anslutning'],
+      })
+    } finally {
+      setReanalyzingQuoteId(null)
     }
   }
 
@@ -518,6 +555,8 @@ export default function CategoryPage({ params }: PageProps) {
                       quote={quote}
                       selected={selectedQuotes.includes(quote.id)}
                       onSelect={() => handleQuoteSelect(quote.id)}
+                      onReanalyze={() => handleReanalyze(quote.id)}
+                      isReanalyzing={reanalyzingQuoteId === quote.id}
                     />
                   ))}
                 </div>
