@@ -116,6 +116,8 @@ Analysera denna offert och extrahera följande i JSON-format:
 VIKTIGT:
 - Extrahera alla produktrader/artiklar du hittar
 - Priser ska vara i numeriskt format (utan valutasymboler)
+- ALLTID använda pris EXKLUSIVE MOMS (ex. moms, netto). Om offerten visar både med och utan moms, välj ALLTID priset utan moms
+- Totalsumman i "totals.total" ska vara EXKLUSIVE MOMS
 - Datum ska vara i formatet YYYY-MM-DD
 - Om något saknas, lämna det tomt eller null
 - Var noggrann med att identifiera vad som ingår vs inte ingår
