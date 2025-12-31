@@ -23,6 +23,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { categoryId, supplierId, deadline } = body
 
+    console.log('Email generate request:', { categoryId, supplierId, deadline })
+
     if (!categoryId || !supplierId || !deadline) {
       return NextResponse.json(
         { error: 'categoryId, supplierId och deadline krävs' },
@@ -42,7 +44,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (categoryError || !category) {
-      return NextResponse.json({ error: 'Kategorin hittades inte' }, { status: 404 })
+      console.error('Category fetch error:', { categoryId, categoryError })
+      return NextResponse.json({ error: 'Kategorin hittades inte', details: categoryError?.message }, { status: 404 })
     }
 
     // Fetch supplier
@@ -53,7 +56,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (supplierError || !supplier) {
-      return NextResponse.json({ error: 'Leverantören hittades inte' }, { status: 404 })
+      console.error('Supplier fetch error:', { supplierId, supplierError })
+      return NextResponse.json({ error: 'Leverantören hittades inte', details: supplierError?.message }, { status: 404 })
     }
 
     // Get specification excerpt if available
